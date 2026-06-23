@@ -1,0 +1,184 @@
+//! The `read` optimizer — soft/medium/high AST compaction plus edit-safety.
+//!
+//! On `Read` it compacts code for the configured [`CompactMode`] (soft strips
+//! comments byte-identically; medium/high collapse code), dedupes identical
+//! re-reads, and returns a token-saving [`Outcome::Rewrite`] with a mode-specific
+//! recovery-guidance header. On `Edit` it maps a compacted `old_string` back to
+//! real bytes ([`Outcome::FixInput`], re-expanding a collapsed `new_string`); on
+//! `Write` it asks before reproducing the stripped view ([`Outcome::Ask`]).
+
+use serde_json::Value;
+
+use super::{dedupe, edit_write};
+use crate::compaction::Compactor;
+use crate::config::CompactMode;
+use crate::domain::{HEADER_PREFIX, HookCtx, Optimizer, Outcome, Surface};
+use crate::languages;
+use crate::tokens::estimate_tokens;
+
+/// Code-reading optimizer attached to the Read, Edit, and Write surfaces.
+pub struct ReadOptimizer;
+
+const READ_SURFACES: &[Surface] = &[Surface::Read, Surface::Edit, Surface::Write];
+
+/// Files larger than this (bytes) are passed through unparsed: a multi-megabyte
+/// source is almost always generated/minified, and a tree-sitter parse on the
+/// model-blocking Read path could blow the latency budget. Identical re-reads
+/// still dedupe (that check is cheap and runs first).
+const MAX_READ_BYTES: usize = 1_000_000;
+
+// Guidance templates: `{snip}` is substituted at runtime with a runnable
+// invocation (the plugin installs snip to `$SNIP_HOME/bin`, which it does NOT add
+// to `PATH`, so a bare `snip resolve` would fail in a real install). `guidance`
+// wraps the final line in the `[snip: …]` header so `write-guard` strips it.
+/// Soft-mode guidance: code is byte-identical, so Edits normally just work.
+const GUIDANCE_SOFT: &str = "comments stripped, code byte-identical — use Edit normally; \
+on \"String to replace not found\", pipe the failing old_string to `{snip} resolve <file>` \
+and retry with its stdout.";
+/// Medium/high guidance: lines are rewritten, so resolve before every Edit.
+const GUIDANCE_COLLAPSED: &str = "comments stripped AND code collapsed — text copied from \
+this view may NOT match the file. Before EVERY Edit on this file, pipe your old_string to \
+`{snip} resolve <file>` and use its stdout as old_string.";
+
+impl Optimizer for ReadOptimizer {
+    // The trait fixes the return as `-> &str`, so the 'static literal trips a lint.
+    #[allow(clippy::unnecessary_literal_bound)]
+    fn name(&self) -> &str {
+        "read"
+    }
+
+    fn surfaces(&self) -> &[Surface] {
+        READ_SURFACES
+    }
+
+    fn matches(&self, _ctx: &HookCtx) -> bool {
+        true
+    }
+
+    fn apply(&self, ctx: &HookCtx) -> anyhow::Result<Outcome> {
+        Ok(match ctx.surface {
+            Surface::Read => apply_read(ctx),
+            Surface::Edit => edit_write::apply_edit(ctx),
+            Surface::Write => edit_write::apply_write(ctx),
+            _ => Outcome::PassThrough,
+        })
+    }
+}
+
+/// `Read`: dedupe an identical re-read, else compact for the configured mode when
+/// it saves ≥5% (so the recovery-guidance header stays net-positive).
+fn apply_read(ctx: &HookCtx<'_>) -> Outcome {
+    let (Some(path), Some(source)) = (file_path(ctx), ctx.output) else {
+        return Outcome::PassThrough;
+    };
+    // secret_safe (opt-in, off by default): pass a secret-bearing source file
+    // through uncompacted BEFORE dedupe — so no compacted view, spill file, or
+    // dedupe-cache copy of the credential is ever produced. Masking source bytes
+    // would break Edit-safety, so passthrough is the safe choice (the model
+    // requested this file anyway). Output surfaces mask instead (see `redact`).
+    if ctx.cfg.secret_safe && crate::optimizers::redact::any_secret(source) {
+        return Outcome::PassThrough;
+    }
+    if let Some(notice) = dedupe_notice(ctx, path, source) {
+        return notice;
+    }
+    if source.len() > MAX_READ_BYTES {
+        return Outcome::PassThrough;
+    }
+    let Some(spec) = languages::detect(path) else {
+        return Outcome::PassThrough;
+    };
+    let mode = ctx.cfg.mode_for("read");
+    let Some(body) = Compactor::new(spec).compress_mode(source, mode) else {
+        return Outcome::PassThrough;
+    };
+    let original_tokens = estimate_tokens(source);
+    // Guard the `pct` divide (and skip a no-savings empty source).
+    if original_tokens == 0 {
+        return Outcome::PassThrough;
+    }
+    let body_tokens = estimate_tokens(&body);
+    // The header reports the code reduction the AST compaction achieved.
+    let pct = 100 - body_tokens.min(original_tokens) * 100 / original_tokens;
+    let name = spec.name;
+    let header = format!(
+        "{HEADER_PREFIX} read | {name} | {} | {original_tokens}→{body_tokens} tok (-{pct}%)]\n{}\n",
+        mode.as_str(),
+        guidance(mode)
+    );
+    // Header-inclusive ≥5% gate: the model pays for the recovery-guidance header too,
+    // so compact only when header + body still beats the original by ≥5% — otherwise
+    // the guidance eats the savings and the rewrite is net-negative.
+    let new_tokens = body_tokens + estimate_tokens(&header);
+    if new_tokens * 105 > original_tokens * 100 {
+        return Outcome::PassThrough;
+    }
+    Outcome::Rewrite {
+        header,
+        body,
+        original_tokens,
+        new_tokens,
+    }
+}
+
+/// The recovery-guidance line for `mode`, wrapped in the `[snip: …]` header and
+/// with `{snip}` resolved to a runnable invocation — a bare `snip resolve` would
+/// fail in a real install (snip lives in `$SNIP_HOME/bin`, not on `PATH`).
+fn guidance(mode: CompactMode) -> String {
+    let template = match mode {
+        CompactMode::Soft => GUIDANCE_SOFT,
+        CompactMode::Medium | CompactMode::High => GUIDANCE_COLLAPSED,
+    };
+    format!(
+        "{HEADER_PREFIX} {}]",
+        template.replace("{snip}", &snip_invocation())
+    )
+}
+
+/// How to invoke snip from a Bash command line: the running binary's absolute
+/// path, forward-slashed and quoted so Git Bash accepts it on Windows. Falls back
+/// to bare `snip` if the path is unknown. Mirrors `bash_route::rewrite_command`.
+fn snip_invocation() -> String {
+    std::env::current_exe().map_or_else(
+        |_| "snip".to_owned(),
+        |p| format!("\"{}\"", p.to_string_lossy().replace('\\', "/")),
+    )
+}
+
+/// Replace a re-read with the dedupe notice (unchanged) or a diff-vs-last-read
+/// (changed), when dedupe is on, the Read is not windowed, and it actually saves.
+/// [`dedupe::notice_or_diff`] remembers this read's fingerprint/content as a
+/// side effect; a first read returns `None` so normal compaction proceeds.
+fn dedupe_notice(ctx: &HookCtx<'_>, path: &str, source: &str) -> Option<Outcome> {
+    let sid = ctx.session_id?;
+    if windowed(ctx) || !ctx.cfg.dedupe_enabled("read") {
+        return None;
+    }
+    let body = dedupe::notice_or_diff(sid, path, source)?;
+    let original_tokens = estimate_tokens(source);
+    let new_tokens = estimate_tokens(&body);
+    if new_tokens >= original_tokens {
+        return None;
+    }
+    Some(Outcome::Rewrite {
+        header: String::new(),
+        body,
+        original_tokens,
+        new_tokens,
+    })
+}
+
+/// The `file_path` field of the tool input, if present and a string. Shared with
+/// the Edit/Write handlers in [`super::edit_write`].
+pub(super) fn file_path<'a>(ctx: &HookCtx<'a>) -> Option<&'a str> {
+    ctx.input.get("file_path").and_then(Value::as_str)
+}
+
+/// Whether the Read is windowed (`offset`/`limit`) — windowed reads skip dedupe.
+fn windowed(ctx: &HookCtx<'_>) -> bool {
+    ctx.input.get("offset").is_some() || ctx.input.get("limit").is_some()
+}
+
+#[cfg(test)]
+#[path = "../../../tests/unit/optimizers/read/read_optimizer.tests.rs"]
+mod tests;

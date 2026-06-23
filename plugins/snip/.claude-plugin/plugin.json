@@ -1,0 +1,33 @@
+{
+  "name": "snip",
+  "displayName": "snip — token & context optimizer",
+  "version": "0.1.0",
+  "description": "Multi-surface token & context optimizer for Claude Code. Hooks Read, Bash, Grep, and Glob and rewrites their output in-flight: edit-safe tree-sitter AST Read across 29 languages, Bash/Grep/Glob output rewriting, recoverable overflow, and net-token honesty. Zero markdown injected, no MCP tools to learn. One native binary, installed and updated through this plugin.",
+  "author": {
+    "name": "Aymeric Pasco",
+    "email": "aymeric.pasco@gmail.com"
+  },
+  "homepage": "https://github.com/snip-ai/snip",
+  "repository": "https://github.com/snip-ai/snip",
+  "license": "Apache-2.0",
+  "keywords": [
+    "claude-code",
+    "claude-code-plugin",
+    "claude-code-hooks",
+    "anthropic",
+    "token-optimization",
+    "context-optimization",
+    "context-engineering",
+    "tokens",
+    "optimizer",
+    "hooks",
+    "tree-sitter",
+    "ast",
+    "rust",
+    "llm",
+    "llm-tools",
+    "developer-tools"
+  ],
+  "hooks": "./hooks/hooks.json",
+  "commands": "./commands"
+}

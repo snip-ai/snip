@@ -1,0 +1,8 @@
+# Keep the Docker build context small + reproducible. The tests/docker image
+# builds snip from source (src + Cargo manifests) and copies tests/docker +
+# plugins/snip; nothing else is needed.
+target/
+.git/
+**/node_modules/
+artifacts/
+*.log

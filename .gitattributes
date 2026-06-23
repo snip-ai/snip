@@ -1,0 +1,12 @@
+# Normalize line endings to LF in the repository and on checkout. Shell scripts
+# in particular MUST stay LF — a CRLF `snip-run.sh`/`snip-bootstrap.sh` breaks
+# under bash ("\r: command not found"), and the plugin ships via a git checkout.
+* text=auto eol=lf
+
+# Explicit, in case a contributor's core.autocrlf would override the above.
+*.sh text eol=lf
+*.rs text eol=lf
+*.json text eol=lf
+*.toml text eol=lf
+*.yml text eol=lf
+*.md text eol=lf

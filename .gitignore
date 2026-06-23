@@ -1,0 +1,36 @@
+/target
+**/*.rs.bk
+*.pdb
+
+# Cargo.lock IS committed (snip ships a binary, not a library) — do not ignore it.
+
+# Runtime/state artifacts (snip's real state lives under the OS data dir, outside
+# the repo; these patterns only catch stray local copies).
+history.db
+history.db-wal
+history.db-shm
+*.bak
+
+# Scratch / local-only (design notes, plans, and roadmap stay off the public repo)
+/plans/
+/docs/
+CLAUDE.local.md
+.claude/settings.local.json
+
+# IDE
+.idea/
+.vscode/
+*.code-workspace
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs / temp
+*.log
+/dist/
+/tmp/

@@ -1,0 +1,91 @@
+name: Bug report
+description: Report something in snip that is broken or behaving incorrectly.
+title: "bug: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report.
+
+        Before opening, please search [existing issues](https://github.com/snip-ai/snip/issues) to avoid duplicates. snip is a Claude Code plugin that compacts token-heavy tool surfaces (Read, Bash, Grep, Glob) via hooks. Hooks always exit 0 and fall back to the original output on failure, so most bugs surface as missing or unexpected optimization rather than a hard error.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear and concise description of the bug, including what you observed.
+      placeholder: Reading a 400-line Rust file produced an un-compacted view instead of the soft-mode AST view.
+    validations:
+      required: true
+  - type: textarea
+    id: repro-steps
+    attributes:
+      label: Steps to reproduce
+      description: Minimal, ordered steps that reliably reproduce the behavior.
+      placeholder: |
+        1. Open Claude Code with the snip plugin enabled.
+        2. Run the `Read` tool on `src/lib.rs`.
+        3. Observe the returned tool output.
+      value: |
+        1. 
+        2. 
+        3. 
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What you expected to happen instead.
+      placeholder: The Read output should be compacted to the soft-mode AST view.
+    validations:
+      required: true
+  - type: input
+    id: snip-version
+    attributes:
+      label: snip version
+      description: Run the `/snip-status` slash command in Claude Code and paste the reported snip version.
+      placeholder: snip 0.3.1
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: OS and Claude Code version
+      description: Your operating system (with version) and your Claude Code version.
+      placeholder: macOS 14.5 / Windows 11 26200; Claude Code 2.1.3
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Relevant surface
+      description: Which tool surface does this bug involve?
+      options:
+        - Read
+        - Bash
+        - Grep
+        - Glob
+        - Edit / Write
+        - Not sure
+        - Other / not surface-specific
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs or output
+      description: |
+        Paste any relevant logs, stderr output, or error messages. This will be automatically formatted as code, so no backticks are needed.
+      render: shell
+    validations:
+      required: false
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Confirmations
+      options:
+        - label: I have searched existing issues and this is not a duplicate.
+          required: true
+        - label: I am running the latest version of the snip plugin.
+          required: false

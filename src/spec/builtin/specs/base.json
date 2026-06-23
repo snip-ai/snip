@@ -1,0 +1,122 @@
+[
+  {
+    "name": "ls",
+    "surface": "bash",
+    "bind": { "cmd": "ls" },
+    "transforms": [
+      { "op": "dedupe" },
+      { "op": "truncate", "head": 100, "tail": 20 }
+    ]
+  },
+  {
+    "name": "grep",
+    "surface": "bash",
+    "bind": { "cmd": "grep" },
+    "transforms": [
+      { "op": "dedupe" },
+      { "op": "group", "by": "file" },
+      { "op": "rank", "by": "errors_first" },
+      { "op": "truncate", "head": 80, "tail": 20 }
+    ]
+  },
+  {
+    "name": "rg",
+    "surface": "bash",
+    "bind": { "cmd": "rg" },
+    "inject_flags": ["--color=never", "--no-heading", "-H", "-n"],
+    "transforms": [
+      { "op": "dedupe" },
+      { "op": "group", "by": "file" },
+      { "op": "rank", "by": "errors_first" },
+      { "op": "truncate", "head": 80, "tail": 20 }
+    ]
+  },
+  {
+    "name": "find",
+    "surface": "bash",
+    "bind": { "cmd": "find" },
+    "transforms": [
+      { "op": "dedupe" },
+      { "op": "group", "by": "dir" },
+      { "op": "truncate", "head": 100, "tail": 20 }
+    ]
+  },
+  {
+    "name": "ps",
+    "surface": "bash",
+    "bind": { "cmd": "ps" },
+    "transforms": [{ "op": "truncate", "head": 60, "tail": 20 }]
+  },
+  {
+    "name": "df",
+    "surface": "bash",
+    "bind": { "cmd": "df" },
+    "transforms": [{ "op": "truncate", "head": 60, "tail": 10 }]
+  },
+  {
+    "name": "du",
+    "surface": "bash",
+    "bind": { "cmd": "du" },
+    "transforms": [
+      { "op": "group", "by": "dir" },
+      { "op": "truncate", "head": 100, "tail": 20 }
+    ]
+  },
+  {
+    "name": "tree",
+    "surface": "bash",
+    "bind": { "cmd": "tree" },
+    "transforms": [{ "op": "truncate", "head": 120, "tail": 20 }]
+  },
+  {
+    "name": "wc",
+    "surface": "bash",
+    "bind": { "cmd": "wc" },
+    "transforms": [{ "op": "truncate", "head": 40, "tail": 10 }]
+  },
+  {
+    "name": "env",
+    "surface": "bash",
+    "bind": { "cmd": "env" },
+    "transforms": [{ "op": "truncate", "head": 80, "tail": 20 }]
+  },
+  {
+    "name": "kubectl-get",
+    "surface": "bash",
+    "bind": { "cmd": "kubectl", "subcommands": ["get"] },
+    "transforms": [
+      { "op": "parse", "format": "table_collapse" },
+      { "op": "truncate", "head": 80, "tail": 20 }
+    ]
+  },
+  {
+    "name": "docker-ps",
+    "surface": "bash",
+    "bind": { "cmd": "docker", "subcommands": ["ps", "images"] },
+    "transforms": [
+      { "op": "parse", "format": "table_collapse" },
+      { "op": "truncate", "head": 80, "tail": 20 }
+    ]
+  },
+  {
+    "name": "kubectl-describe",
+    "surface": "bash",
+    "bind": { "cmd": "kubectl", "subcommands": ["describe"] },
+    "transforms": [
+      { "op": "strip_ansi" },
+      { "op": "squeeze" },
+      { "op": "truncate", "head": 80, "tail": 30 }
+    ]
+  },
+  {
+    "name": "docker-build",
+    "surface": "bash",
+    "bind": { "cmd": "docker", "subcommands": ["build"] },
+    "transforms": [
+      { "op": "strip_ansi" },
+      { "op": "dedupe" },
+      { "op": "rank", "by": "errors_first" },
+      { "op": "truncate", "head": 40, "tail": 40 }
+    ]
+  }
+]

@@ -1,0 +1,107 @@
+[package]
+name = "snip"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.96"
+description = "snip — unified token/context optimizer for Claude Code"
+authors = ["Aymeric Pasco <aymeric.pasco@gmail.com>", "The snip contributors"]
+license = "Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/snip-ai/snip"
+homepage = "https://github.com/snip-ai/snip"
+keywords = ["claude-code", "tokens", "hook", "cli"]
+categories = ["command-line-utilities", "development-tools"]
+exclude = ["/.github", "/.claude", "/.claude-plugin", "/docs", "/plugins"]
+# Test targets are declared explicitly (the `tests/` tree is split into
+# unit/integration/e2e subdirs that should not be auto-discovered): unit tests
+# compile into the library via `#[path]` includes; `[[test]]` wires integration.
+autotests = false
+
+[lib]
+name = "snip_lib"
+path = "src/lib.rs"
+
+[[bin]]
+name = "snip"
+path = "src/main.rs"
+
+# Integration tests: black-box, against the public API. One harness includes the
+# `tests/integration/` mirror tree via `#[path]`.
+[[test]]
+name = "integration"
+path = "tests/integration/main.rs"
+
+# End-to-end tests: drive the built `snip` binary exactly as Claude Code does —
+# hook JSON on stdin, asserting stdout + the always-exit-0 invariant. One harness
+# includes the `tests/e2e/` mirror tree via `#[path]`.
+[[test]]
+name = "e2e"
+path = "tests/e2e/main.rs"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+dirs = "6"
+anyhow = "1"
+rusqlite = { version = "0.32", features = ["bundled"] }
+tree-sitter = "0.26.9"
+tree-sitter-rust = "0.24.2"
+tree-sitter-python = "0.25.0"
+tree-sitter-javascript = "0.25.0"
+tree-sitter-typescript = "0.23.2"
+tree-sitter-go = "0.25.0"
+tree-sitter-c = "0.24.2"
+tree-sitter-cpp = "0.23.4"
+tree-sitter-java = "0.23.5"
+tree-sitter-ruby = "0.23.1"
+tree-sitter-bash = "0.25.1"
+tree-sitter-c-sharp = "0.23.5"
+tree-sitter-php = "0.24.2"
+tree-sitter-css = "0.25.0"
+tree-sitter-lua = "0.5.0"
+tree-sitter-elixir = "0.3.5"
+tree-sitter-kotlin-ng = "1.1.0"
+tree-sitter-scala = "0.26.0"
+tree-sitter-yaml = "0.7.2"
+tree-sitter-toml-ng = "0.7.0"
+tree-sitter-sequel = "0.3.11"
+tree-sitter-html = "0.23.2"
+tree-sitter-swift = "0.7.3"
+tree-sitter-dart = "0.2.0"
+tree-sitter-r = "1.2.0"
+tree-sitter-zig = "1.1.2"
+tree-sitter-julia = "0.23.1"
+tree-sitter-haskell = "0.23.1"
+tree-sitter-objc = "3.0.2"
+
+[lints.rust]
+unsafe_code = "forbid"
+missing_docs = "deny"
+
+[lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+nursery = { level = "deny", priority = -1 }
+
+# panic stays "unwind": the hooks' always-exit-0 invariant relies on a top-level
+# catch_unwind — "abort" would turn any panic into a non-zero exit that Claude
+# Code surfaces as a hook failure.
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+panic = "unwind"
+
+[dev-dependencies]
+assert2 = "0.4.0"
+assert_cmd = "2.1.2"
+insta = "1.48.0"
+predicates = "3.1.4"
+serial_test = "3.5.0"
+# edition 2024 makes `std::env::set_var` unsafe; `temp_env` sets env via a safe,
+# auto-restoring, lock-serialized API so tests need no `unsafe` (preserving the
+# crate's `unsafe_code = "forbid"` invariant).
+temp-env = "0.3"
+tempfile = "3.27.0"
