@@ -1,0 +1,447 @@
+[
+  {
+    "name": "cargo-check",
+    "surface": "bash",
+    "bind": { "cmd": "cargo", "subcommands": ["build", "check", "clippy"] },
+    "inject_flags": ["--message-format=json", "--color=never"],
+    "transforms": [
+      { "op": "parse", "format": "cargo_json" },
+      { "op": "rank", "by": "errors_first" },
+      { "op": "truncate", "head": 60, "tail": 20 }
+    ]
+  },
+  {
+    "name": "cargo",
+    "surface": "bash",
+    "bind": { "cmd": "cargo", "subcommands": ["test", "run", "bench"] },
+    "inject_flags": ["--color=never"],
+    "transforms": [
+      { "op": "test_rollup", "pred": { "match": "ends_with", "value": " ... ok" } },
+      { "op": "dedupe" },
+      { "op": "fold_frames" },
+      { "op": "truncate", "head": 40, "tail": 40 }
+    ]
+  },
+  {
+    "name": "npm-install",
+    "surface": "bash",
+    "bind": { "cmd": "npm", "subcommands": ["install", "ci"] },
+    "inject_flags": ["--no-audit", "--no-fund"],
+    "transforms": [
+      { "op": "strip_ansi" },
+      { "op": "drop", "pred": { "match": "starts_with", "value": "npm http" } },
+      { "op": "rank", "by": "errors_first" },
+      { "op": "truncate", "head": 40, "tail": 20 }
+    ]
+  },
+  {
+    "name": "pnpm-install",
+    "surface": "bash",
+    "bind": { "cmd": "pnpm", "subcommands": ["install", "i"] },
+    "transforms": [
+      { "op": "strip_ansi" },
+      { "op": "drop", "pred": { "match": "starts_with", "value": "Progress:" } },
+      { "op": "rank", "by": "errors_first" },
+      { "op": "truncate", "head": 40, "tail": 20 }
+    ]
+  },
+  {
+    "name": "yarn-install",
+    "surface": "bash",
+    "bind": { "cmd": "yarn", "subcommands": ["install"] },
+    "transforms": [
+      { "op": "strip_ansi" },
+      { "op": "drop", "pred": { "match": "starts_with", "value": "info " } },
+      { "op": "rank", "by": "errors_first" },
+      { "op": "truncate", "head": 40, "tail": 20 }
+    ]
+  },
+  {
+    "name": "eslint",
+    "surface": "bash",
+    "bind": { "cmd": "eslint" },
+    "inject_flags": ["--format=json"],
+    "transforms": [
+      { "op": "parse", "format": "eslint_json" },
+      { "op": "rank", "by": "errors_first" },
+      { "op": "truncate", "head": 60, "tail": 20 }
+    ]
+  },
+  {
+    "name": "tsc",
+    "surface": "bash",
+    "bind": { "cmd": "tsc" },
+    "transforms": [
+      { "op": "strip_ansi" },
+      { "op": "rank", "by": "errors_first" },
+      { "op": "truncate", "head": 60, "tail": 20 }
+    ]
+  },
+  {
+    "name": "pytest",
+    "surface": "bash",
+    "bind": { "cmd": "pytest" },
+    "inject_flags": ["-q", "--no-header", "--color=no"],
+    "transforms": [
+      { "op": "strip_ansi" },
+      { "op": "fold_frames" },
+      { "op": "rank", "by": "errors_first" },
+      { "op": "truncate", "head": 30, "tail": 50 }
+    ]
+  },
+  {
+    "name": "mypy",
+    "surface": "bash",
+    "bind": { "cmd": "mypy" },
+    "inject_flags": ["--no-color-output", "--no-pretty"],
+    "transforms": [
+      { "op": "strip_ansi" },
+      { "op": "drop", "pred": { "match": "starts_with", "value": "    " } },
+      { "op": "rank", "by": "errors_first" },
+      { "op": "truncate", "head": 60, "tail": 20 }
+    ]
+  },
+  {
+    "name": "ruff",
+    "surface": "bash",
+    "bind": { "cmd": "ruff", "subcommands": ["check"] },
+    "inject_flags": ["--output-format=json"],
+    "transforms": [
+      { "op": "parse", "format": "ruff_json" },
+      { "op": "truncate", "head": 60, "tail": 20 }
+    ]
+  },
+  {
+    "name": "pip-install",
+    "surface": "bash",
+    "bind": { "cmd": "pip", "subcommands": ["install"] },
+    "inject_flags": ["-q", "--no-color"],
+    "transforms": [
+      { "op": "strip_ansi" },
+      { "op": "drop", "pred": { "match": "starts_with", "value": "Collecting" } },
+      { "op": "dedupe" },
+      { "op": "rank", "by": "errors_first" },
+      { "op": "truncate", "head": 40, "tail": 20 }
+    ]
+  },
+  {
+    "name": "go-test",
+    "surface": "bash",
+    "bind": { "cmd": "go", "subcommands": ["test"] },
+    "inject_flags": ["-json"],
+    "transforms": [
+      { "op": "parse", "format": "go_test_json" },
+      { "op": "truncate", "head": 60, "tail": 20 }
+    ]
+  },
+  {
+    "name": "go-build-vet",
+    "surface": "bash",
+    "bind": { "cmd": "go", "subcommands": ["build", "vet"] },
+    "transforms": [
+      { "op": "strip_ansi" },
+      { "op": "drop", "pred": { "match": "starts_with", "value": "=== RUN" } },
+      { "op": "drop", "pred": { "match": "starts_with", "value": "--- PASS" } },
+      { "op": "fold_frames" },
+      { "op": "rank", "by": "errors_first" },
+      { "op": "truncate", "head": 40, "tail": 40 }
+    ]
+  },
+  {
+    "name": "jest",
+    "surface": "bash",
+    "bind": { "cmd": "jest" },
+    "inject_flags": ["--json"],
+    "transforms": [
+      { "op": "parse", "format": "jest_json" },
+      { "op": "rank", "by": "errors_first" },
+      { "op": "truncate", "head": 60, "tail": 20 }
+    ]
+  },
+  {
+    "name": "swift",
+    "surface": "bash",
+    "bind": { "cmd": "swift", "subcommands": ["build", "test", "run", "package"] },
+    "transforms": [
+      { "op": "strip_ansi" },
+      { "op": "squeeze" },
+      { "op": "rank", "by": "errors_first" },
+      { "op": "truncate", "head": 50, "tail": 30 }
+    ]
+  },
+  {
+    "name": "swiftlint",
+    "surface": "bash",
+    "bind": { "cmd": "swiftlint" },
+    "transforms": [
+      { "op": "strip_ansi" },
+      { "op": "rank", "by": "errors_first" },
+      { "op": "truncate", "head": 60, "tail": 20 }
+    ]
+  },
+  {
+    "name": "dart",
+    "surface": "bash",
+    "bind": {
+      "cmd": "dart",
+      "subcommands": ["build", "test", "analyze", "pub", "run", "compile", "format"]
+    },
+    "transforms": [
+      { "op": "strip_ansi" },
+      { "op": "squeeze" },
+      { "op": "rank", "by": "errors_first" },
+      { "op": "truncate", "head": 50, "tail": 30 }
+    ]
+  },
+  {
+    "name": "flutter",
+    "surface": "bash",
+    "bind": { "cmd": "flutter", "subcommands": ["build", "test", "analyze", "pub", "run"] },
+    "transforms": [
+      { "op": "strip_ansi" },
+      { "op": "squeeze" },
+      { "op": "rank", "by": "errors_first" },
+      { "op": "truncate", "head": 50, "tail": 30 }
+    ]
+  },
+  {
+    "name": "rscript",
+    "surface": "bash",
+    "bind": { "cmd": "Rscript" },
+    "transforms": [
+      { "op": "strip_ansi" },
+      { "op": "squeeze" },
+      { "op": "truncate", "head": 40, "tail": 40 }
+    ]
+  },
+  {
+    "name": "r-cmd",
+    "surface": "bash",
+    "bind": { "cmd": "R", "subcommands": ["CMD"] },
+    "transforms": [
+      { "op": "strip_ansi" },
+      { "op": "squeeze" },
+      { "op": "rank", "by": "errors_first" },
+      { "op": "truncate", "head": 50, "tail": 30 }
+    ]
+  },
+  {
+    "name": "zig",
+    "surface": "bash",
+    "bind": {
+      "cmd": "zig",
+      "subcommands": ["build", "test", "build-exe", "build-lib", "build-obj", "fmt"]
+    },
+    "transforms": [
+      { "op": "strip_ansi" },
+      { "op": "squeeze" },
+      { "op": "fingerprint" },
+      { "op": "rank", "by": "errors_first" },
+      { "op": "truncate", "head": 50, "tail": 30 }
+    ]
+  },
+  {
+    "name": "cabal",
+    "surface": "bash",
+    "bind": { "cmd": "cabal", "subcommands": ["build", "test"] },
+    "transforms": [
+      { "op": "strip_ansi" },
+      { "op": "squeeze" },
+      { "op": "rank", "by": "errors_first" },
+      { "op": "truncate", "head": 50, "tail": 30 }
+    ]
+  },
+  {
+    "name": "stack",
+    "surface": "bash",
+    "bind": { "cmd": "stack", "subcommands": ["build", "test"] },
+    "transforms": [
+      { "op": "strip_ansi" },
+      { "op": "squeeze" },
+      { "op": "rank", "by": "errors_first" },
+      { "op": "truncate", "head": 50, "tail": 30 }
+    ]
+  },
+  {
+    "name": "hlint",
+    "surface": "bash",
+    "bind": { "cmd": "hlint" },
+    "transforms": [
+      { "op": "strip_ansi" },
+      { "op": "rank", "by": "errors_first" },
+      { "op": "truncate", "head": 60, "tail": 20 }
+    ]
+  },
+  {
+    "name": "xcodebuild",
+    "surface": "bash",
+    "bind": { "cmd": "xcodebuild", "subcommands": ["build", "test", "clean", "archive"] },
+    "transforms": [
+      { "op": "strip_ansi" },
+      { "op": "drop", "pred": { "match": "starts_with", "value": "    " } },
+      { "op": "dedupe" },
+      { "op": "rank", "by": "errors_first" },
+      { "op": "truncate", "head": 40, "tail": 40 }
+    ]
+  },
+  {
+    "name": "pod",
+    "surface": "bash",
+    "bind": { "cmd": "pod", "subcommands": ["install", "update", "lint"] },
+    "transforms": [
+      { "op": "strip_ansi" },
+      { "op": "drop", "pred": { "match": "starts_with", "value": "Analyzing" } },
+      { "op": "squeeze" },
+      { "op": "rank", "by": "errors_first" },
+      { "op": "truncate", "head": 40, "tail": 20 }
+    ]
+  },
+  {
+    "name": "maven",
+    "surface": "bash",
+    "bind": { "cmd": "mvn" },
+    "inject_flags": ["--no-transfer-progress", "--batch-mode"],
+    "transforms": [
+      { "op": "strip_ansi" },
+      { "op": "dedupe" },
+      { "op": "rank", "by": "errors_first" },
+      { "op": "truncate", "head": 50, "tail": 30 }
+    ]
+  },
+  {
+    "name": "maven-wrapper",
+    "surface": "bash",
+    "bind": { "cmd": "mvnw" },
+    "inject_flags": ["--no-transfer-progress", "--batch-mode"],
+    "transforms": [
+      { "op": "strip_ansi" },
+      { "op": "dedupe" },
+      { "op": "rank", "by": "errors_first" },
+      { "op": "truncate", "head": 50, "tail": 30 }
+    ]
+  },
+  {
+    "name": "gradle",
+    "surface": "bash",
+    "bind": { "cmd": "gradle" },
+    "inject_flags": ["--console=plain"],
+    "transforms": [
+      { "op": "strip_ansi" },
+      { "op": "dedupe" },
+      { "op": "rank", "by": "errors_first" },
+      { "op": "truncate", "head": 50, "tail": 30 }
+    ]
+  },
+  {
+    "name": "gradle-wrapper",
+    "surface": "bash",
+    "bind": { "cmd": "gradlew" },
+    "inject_flags": ["--console=plain"],
+    "transforms": [
+      { "op": "strip_ansi" },
+      { "op": "dedupe" },
+      { "op": "rank", "by": "errors_first" },
+      { "op": "truncate", "head": 50, "tail": 30 }
+    ]
+  },
+  {
+    "name": "dotnet",
+    "surface": "bash",
+    "bind": { "cmd": "dotnet", "subcommands": ["build", "test", "publish", "pack", "msbuild"] },
+    "inject_flags": ["--nologo"],
+    "transforms": [
+      { "op": "strip_ansi" },
+      { "op": "dedupe" },
+      { "op": "rank", "by": "errors_first" },
+      { "op": "truncate", "head": 50, "tail": 30 }
+    ]
+  },
+  {
+    "name": "vitest",
+    "surface": "bash",
+    "bind": { "cmd": "vitest", "subcommands": ["run"] },
+    "transforms": [
+      { "op": "strip_ansi" },
+      { "op": "fold_frames" },
+      { "op": "rank", "by": "errors_first" },
+      { "op": "truncate", "head": 40, "tail": 40 }
+    ]
+  },
+  {
+    "name": "uv",
+    "surface": "bash",
+    "bind": { "cmd": "uv", "subcommands": ["pip", "sync", "add", "lock", "build", "export", "tree"] },
+    "transforms": [
+      { "op": "strip_ansi" },
+      { "op": "dedupe" },
+      { "op": "rank", "by": "errors_first" },
+      { "op": "truncate", "head": 40, "tail": 20 }
+    ]
+  },
+  {
+    "name": "composer",
+    "surface": "bash",
+    "bind": { "cmd": "composer", "subcommands": ["install", "update"] },
+    "inject_flags": ["--no-ansi", "--no-progress"],
+    "transforms": [
+      { "op": "strip_ansi" },
+      { "op": "dedupe" },
+      { "op": "rank", "by": "errors_first" },
+      { "op": "truncate", "head": 40, "tail": 20 }
+    ]
+  },
+  {
+    "name": "bundle",
+    "surface": "bash",
+    "bind": { "cmd": "bundle", "subcommands": ["install", "update"] },
+    "transforms": [
+      { "op": "strip_ansi" },
+      { "op": "drop", "pred": { "match": "starts_with", "value": "Using " } },
+      { "op": "dedupe" },
+      { "op": "rank", "by": "errors_first" },
+      { "op": "truncate", "head": 40, "tail": 20 }
+    ]
+  },
+  {
+    "name": "rspec",
+    "surface": "bash",
+    "bind": { "cmd": "rspec" },
+    "transforms": [
+      { "op": "strip_ansi" },
+      { "op": "fold_frames" },
+      { "op": "rank", "by": "errors_first" },
+      { "op": "truncate", "head": 30, "tail": 50 }
+    ]
+  },
+  {
+    "name": "rubocop",
+    "surface": "bash",
+    "bind": { "cmd": "rubocop" },
+    "transforms": [
+      { "op": "strip_ansi" },
+      { "op": "rank", "by": "errors_first" },
+      { "op": "truncate", "head": 60, "tail": 20 }
+    ]
+  },
+  {
+    "name": "golangci-lint",
+    "surface": "bash",
+    "bind": { "cmd": "golangci-lint", "subcommands": ["run"] },
+    "transforms": [
+      { "op": "strip_ansi" },
+      { "op": "rank", "by": "errors_first" },
+      { "op": "truncate", "head": 60, "tail": 20 }
+    ]
+  },
+  {
+    "name": "make",
+    "surface": "bash",
+    "bind": { "cmd": "make" },
+    "transforms": [
+      { "op": "strip_ansi" },
+      { "op": "dedupe" },
+      { "op": "rank", "by": "errors_first" },
+      { "op": "truncate", "head": 50, "tail": 30 }
+    ]
+  }
+]

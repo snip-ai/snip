@@ -1,0 +1,40 @@
+# Docker e2e tier: runs the real `claude` CLI with snip installed, end-to-end,
+# inside a network-isolated container against a loopback fake model server.
+# Offline, deterministic, secretless — but it builds snip + installs Claude Code,
+# so it is slow and runs nightly / on demand / on release tags, NOT per-PR (the
+# fast `cargo test` suite gates PRs in ci.yml).
+name: docker-e2e
+
+on:
+  workflow_dispatch:
+    inputs:
+      claude_version:
+        description: "Claude Code version to test (npm tag/version)"
+        required: false
+        default: "2.1.175"
+  schedule:
+    - cron: "0 4 * * *" # nightly at 04:00 UTC
+  push:
+    tags:
+      - "v*" # gate releases on the real-Claude-Code integration
+
+permissions:
+  contents: read
+
+jobs:
+  docker-e2e:
+    # amd64 — snip's released Linux target (x86_64); the lifecycle phase asserts
+    # the bootstrap install path only on this arch.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the e2e image
+        run: |
+          docker build \
+            --build-arg "CLAUDE_VERSION=${{ github.event.inputs.claude_version || '2.1.175' }}" \
+            -f tests/docker/Dockerfile -t snip-docker-e2e .
+
+      - name: Run A/B/C phases (network-isolated, offline)
+        run: docker run --rm --network=none snip-docker-e2e

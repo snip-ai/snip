@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions and ideas (Discussions)
+    url: https://github.com/snip-ai/snip/discussions
+    about: Ask questions, share ideas, and discuss usage. Please use Discussions instead of opening an issue for anything that is not a confirmed bug or a concrete feature request.
+  - name: Report a security vulnerability
+    url: https://github.com/snip-ai/snip/security/advisories/new
+    about: Do not open a public issue for security vulnerabilities. Report them privately via GitHub Security Advisories.

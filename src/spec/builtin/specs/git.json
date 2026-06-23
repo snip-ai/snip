@@ -1,0 +1,105 @@
+[
+  {
+    "name": "git-status",
+    "surface": "bash",
+    "bind": { "cmd": "git", "subcommands": ["status"] },
+    "inject_flags": ["--porcelain=v2", "--branch"],
+    "transforms": [
+      { "op": "parse", "format": "git_status_v2" },
+      { "op": "truncate", "head": 120, "tail": 20 }
+    ]
+  },
+  {
+    "name": "git-log",
+    "surface": "bash",
+    "bind": { "cmd": "git", "subcommands": ["log"] },
+    "inject_flags": ["--oneline", "--no-decorate", "--no-color"],
+    "transforms": [{ "op": "truncate", "head": 60, "tail": 10 }]
+  },
+  {
+    "name": "git-show",
+    "surface": "bash",
+    "bind": { "cmd": "git", "subcommands": ["show"] },
+    "inject_flags": ["--no-color"],
+    "transforms": [
+      { "op": "fold_diff" },
+      { "op": "truncate", "head": 120, "tail": 20 }
+    ]
+  },
+  {
+    "name": "git-diff",
+    "surface": "bash",
+    "bind": { "cmd": "git", "subcommands": ["diff"] },
+    "inject_flags": ["--no-color"],
+    "transforms": [
+      { "op": "fold_diff" },
+      { "op": "truncate", "head": 120, "tail": 20 }
+    ]
+  },
+  {
+    "name": "git-branch",
+    "surface": "bash",
+    "bind": { "cmd": "git", "subcommands": ["branch"] },
+    "inject_flags": ["--no-color"],
+    "transforms": [{ "op": "truncate", "head": 100, "tail": 20 }]
+  },
+  {
+    "name": "git-blame",
+    "surface": "bash",
+    "bind": { "cmd": "git", "subcommands": ["blame"] },
+    "transforms": [
+      { "op": "dedupe" },
+      { "op": "truncate", "head": 80, "tail": 20 }
+    ]
+  },
+  {
+    "name": "git-remote",
+    "surface": "bash",
+    "bind": { "cmd": "git", "subcommands": ["remote"] },
+    "transforms": [
+      { "op": "dedupe" },
+      { "op": "truncate", "head": 20, "tail": 5 }
+    ]
+  },
+  {
+    "name": "git-reflog",
+    "surface": "bash",
+    "bind": { "cmd": "git", "subcommands": ["reflog"] },
+    "inject_flags": ["--no-color"],
+    "transforms": [{ "op": "truncate", "head": 60, "tail": 10 }]
+  },
+  {
+    "name": "git-shortlog",
+    "surface": "bash",
+    "bind": { "cmd": "git", "subcommands": ["shortlog"] },
+    "inject_flags": ["--no-color"],
+    "transforms": [{ "op": "truncate", "head": 60, "tail": 10 }]
+  },
+  {
+    "name": "git-stash",
+    "surface": "bash",
+    "bind": { "cmd": "git", "subcommands": ["stash"] },
+    "transforms": [{ "op": "truncate", "head": 40, "tail": 10 }]
+  },
+  {
+    "name": "git-ls-files",
+    "surface": "bash",
+    "bind": { "cmd": "git", "subcommands": ["ls-files"] },
+    "transforms": [
+      { "op": "group", "by": "dir" },
+      { "op": "truncate", "head": 100, "tail": 20 }
+    ]
+  },
+  {
+    "name": "git-grep",
+    "surface": "bash",
+    "bind": { "cmd": "git", "subcommands": ["grep"] },
+    "inject_flags": ["--no-color", "-n"],
+    "transforms": [
+      { "op": "dedupe" },
+      { "op": "group", "by": "file" },
+      { "op": "rank", "by": "errors_first" },
+      { "op": "truncate", "head": 80, "tail": 20 }
+    ]
+  }
+]

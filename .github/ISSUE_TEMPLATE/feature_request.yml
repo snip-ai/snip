@@ -1,0 +1,57 @@
+name: Feature request
+description: Suggest an idea or improvement for snip.
+title: "feat: "
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting an improvement to snip.
+
+        Before opening, please search [existing issues](https://github.com/snip-ai/snip/issues) and [Discussions](https://github.com/snip-ai/snip/discussions) to see if your idea is already being tracked. New command optimizations are often expressible as declarative specs (no recompile) rather than new Rust code, so describing the surface and the transform you want helps a lot.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What problem are you trying to solve? What is the token cost or friction today?
+      placeholder: Output of `cargo test` is verbose and floods the context with passing-test lines.
+    validations:
+      required: true
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: Proposed solution
+      description: Describe the change you would like to see and how it should behave.
+      placeholder: Compact `cargo test` output to a summary line plus only the failing tests.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any alternative solutions or workarounds you have considered.
+    validations:
+      required: false
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Which surface or optimizer?
+      description: Which tool surface or optimizer would this affect?
+      options:
+        - Read (read optimizer)
+        - Bash (command optimizer)
+        - Grep / Glob (search optimizer)
+        - Edit / Write
+        - Config / CLI
+        - Plugin packaging / distribution
+        - Not sure
+        - Other
+    validations:
+      required: true
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Confirmations
+      options:
+        - label: I have searched existing issues and Discussions and this is not a duplicate.
+          required: true

@@ -1,0 +1,6 @@
+# Pin the toolchain so every local, CI, and Docker build uses the same compiler.
+# Bump this in lockstep with the `rust-version` in Cargo.toml and the pins in
+# .github/workflows/*.yml and tests/docker/Dockerfile.
+[toolchain]
+channel = "1.96.0"
+components = ["rustfmt", "clippy"]

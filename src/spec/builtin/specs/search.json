@@ -1,0 +1,20 @@
+[
+  {
+    "name": "search-grep",
+    "surface": "grep",
+    "transforms": [
+      { "op": "dedupe" },
+      { "op": "group", "by": "auto" },
+      { "op": "truncate", "head": 80, "tail": 20 }
+    ]
+  },
+  {
+    "name": "search-glob",
+    "surface": "glob",
+    "transforms": [
+      { "op": "dedupe" },
+      { "op": "group", "by": "dir" },
+      { "op": "truncate", "head": 100, "tail": 20 }
+    ]
+  }
+]
