@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/snip-ai/snip/compare/v0.2.0...v0.3.0) (2026-06-24)
+
+
+### 🚀 Features
+
+* auto-update the binary to the latest release ([#12](https://github.com/snip-ai/snip/issues/12)) ([9772b47](https://github.com/snip-ai/snip/commit/9772b4730822aac1b5ca036910a4d13f3f500b60))
+
 ## [0.2.0](https://github.com/snip-ai/snip/compare/v0.1.1...v0.2.0) (2026-06-24)
 
 
