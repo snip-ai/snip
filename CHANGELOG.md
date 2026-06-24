@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/snip-ai/snip/compare/v0.1.1...v0.2.0) (2026-06-24)
+
+
+### 🚀 Features
+
+* **plugin:** opt-in /snip-shell-setup for running snip from a shell ([#10](https://github.com/snip-ai/snip/issues/10)) ([cf801b9](https://github.com/snip-ai/snip/commit/cf801b969edd9551d522d5c7a5ef968e57713ce7))
+
 ## [0.1.1](https://github.com/snip-ai/snip/compare/v0.1.0...v0.1.1) (2026-06-24)
 
 
