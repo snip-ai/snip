@@ -29,6 +29,8 @@ output unchanged — and snip **never writes to your source files**.
 /plugin install snip@snip
 ```
 
+> The `/plugin` commands above are for the Claude Code **CLI**. In the **integrated** Claude Code (IDE extension / desktop app), add the marketplace and install snip from the **Manage plugins** panel instead.
+
 On first run the plugin downloads the prebuilt binary for your platform from the
 matching GitHub release, verifies its checksum, and installs it under your OS data
 dir; hooks then run it by absolute path. Install **and** updates both flow through

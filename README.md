@@ -12,10 +12,6 @@ No config to learn. No clutter in the chat. Nothing the model has to think about
 
 [![Version](https://img.shields.io/github/v/release/snip-ai/snip?label=version&sort=semver)](https://github.com/snip-ai/snip/releases/latest)
 [![CI](https://github.com/snip-ai/snip/actions/workflows/ci.yml/badge.svg)](https://github.com/snip-ai/snip/actions/workflows/ci.yml)
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-![Platforms](https://img.shields.io/badge/platforms-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey)
-![Built with Rust](https://img.shields.io/badge/built%20with-Rust-orange?logo=rust)
-![Claude Code plugin](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2)
 
 </div>
 
@@ -56,6 +52,8 @@ snip ships as a **Claude Code plugin** — install *and* updates both flow throu
 /plugin marketplace add snip-ai/snip
 /plugin install snip@snip
 ```
+
+> The `/plugin` commands above are for the Claude Code **CLI**. In the **integrated** Claude Code (IDE extension / desktop app), add the marketplace and install snip from the **Manage plugins** panel instead.
 
 On first run, the plugin grabs the prebuilt binary for your platform, verifies its checksum, and drops it in your OS data dir. Hooks call it by absolute path from there. That's it — you're optimizing.
 
