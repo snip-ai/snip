@@ -75,6 +75,7 @@ auxiliary request can't desync a scenario.
 | **B — Bash families** | `phase-b-bash.test.mjs` | The command optimizer through the real Bash tool: base-shell families that compact on overflow (`ls`/`find`/`grep`), the git family (`git status` → git_status_v2, `git log` → one-line-per-commit), and transparency (small output + shell operators/pipes reach the model byte-for-byte). Framework families (cargo/eslint/ruff/go-test/jest) are unit-tested in Rust against captured output. |
 | **B — Edit/Write** | `phase-b-edit-write.test.mjs` | An Edit applies end-to-end (edit-fix passthrough), a Write creates a new file (write-guard passthrough), and the documented live recovery `snip resolve` maps a comment-stripped block back to real bytes through the real Bash tool. |
 | **B — Grep modes** | `phase-b-grep-modes.test.mjs` | Grep `output_mode` variants beyond `content`: `files_with_matches` and `count` reach the model intact. (Grouping `files_with_matches` is a tracked enhancement — see caveats.) |
+| **B — plugin install** | `phase-b-plugin-install.test.mjs` | snip loaded the way a real install does — `claude --plugin-dir <plugin root>` discovers the plugin from `.claude-plugin/plugin.json` and auto-loads `hooks/hooks.json`, the production path (NOT the `--settings` bypass every other phase uses). Proves the hooks register from the manifest (the Read hook fires) with no "Duplicate hooks file detected" / `hook-load-failed`. The regression guard for the v0.1.0 manifest that re-declared the auto-loaded hooks file → every hook silently unregistered. |
 | **B — lifecycle** | `phase-b-lifecycle.test.mjs` | The plugin self-install path: `snip-bootstrap.sh` (and `snip-run.sh update-check`) download + verify + install the binary from a loopback fake release server. |
 | **C — efficacy** | `phase-c-efficacy.test.mjs` | Replays the **same** tool calls with snip off then on and diffs the tokens of the tool_results the model received — a precise, deterministic savings figure (e.g. Read −39%, Grep −80%, Glob −31%). Asserts snip never inflates and nets a reduction. |
 
@@ -133,6 +134,14 @@ node --test tests/docker/phase-a-contract.test.mjs   # one phase
   `files_with_matches` output (a bare path list on the grep surface that previously
   grouped *by file*, not by dir) — now grouped by directory via the search spec's
   `auto` group key, asserted by the Grep-modes phase. The earlier Glob `filenames`
-  no-op was fixed the same way (in `ToolResponse`).
+  no-op was fixed the same way (in `ToolResponse`). The v0.1.0 plugin-manifest
+  `hooks` re-declaration (every hook silently unregistered) is now guarded two
+  ways: the plugin-install phase above (real discovery), and a cheap structural
+  check in `tests/unit/hooks/update_check.tests.rs`
+  (`shipped_plugin_manifest_does_not_redeclare_auto_loaded_hooks`).
+- **This tier is nightly, not per-PR.** The behavioural plugin-install phase only
+  runs in the Docker tier (nightly / on-demand / on release). The cheap structural
+  guard above lives in the Rust unit suite precisely so a re-introduced manifest
+  `hooks` field fails fast on every PR, not just nightly.
 - **Toolchain:** Rust is pinned to 1.96 (`rust-toolchain.toml`, edition 2024); the
   build image's `rust:1.96-bookworm` matches it — bump both together.

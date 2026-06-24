@@ -28,6 +28,5 @@
     "llm-tools",
     "developer-tools"
   ],
-  "hooks": "./hooks/hooks.json",
   "commands": "./commands"
 }

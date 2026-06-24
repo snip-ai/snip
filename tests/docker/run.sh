@@ -29,6 +29,7 @@ if [ ${#phases[@]} -eq 0 ]; then
     tests/docker/phase-b-bash.test.mjs
     tests/docker/phase-b-edit-write.test.mjs
     tests/docker/phase-b-grep-modes.test.mjs
+    tests/docker/phase-b-plugin-install.test.mjs
     tests/docker/phase-b-lifecycle.test.mjs
     tests/docker/phase-c-efficacy.test.mjs
   )
