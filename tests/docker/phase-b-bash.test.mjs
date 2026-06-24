@@ -31,7 +31,7 @@ function manyFiles(dir, n) {
 }
 
 /** A git repo with `commits` commits and `untracked` untracked files. */
-function gitRepo(dir, { commits, untracked }) {
+function gitRepo(dir, { commits, untracked, modified = 0 }) {
   fs.mkdirSync(dir, { recursive: true });
   const env = { ...process.env, GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@t", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@t" };
   const git = (...a) => spawnSync("git", ["-C", dir, ...a], { env, encoding: "utf8" });
@@ -42,6 +42,15 @@ function gitRepo(dir, { commits, untracked }) {
     fs.writeFileSync(path.join(dir, `c${i}.txt`), `content ${i}\n`);
     git("add", "-A");
     git("commit", "-q", "-m", `commit number ${i} with a reasonably long descriptive subject line`);
+  }
+  // Dirty tracked files so `git status --porcelain=v2` emits long type-1 records
+  // (`1 <xy> <sub> <3 modes> <2 oids> <path>`) that git_status_v2 collapses to
+  // `<xy> path` — a real saving that clears the no-inflation guard. Untracked-only
+  // (`? path` → `?? path`) would INFLATE, so these modified entries are what makes
+  // the compaction header appear; half staged (M.), half unstaged (.M).
+  for (let i = 0; i < modified && i < commits; i++) {
+    fs.appendFileSync(path.join(dir, `c${i}.txt`), `dirty change ${i}\n`);
+    if (i % 2 === 0) git("add", `c${i}.txt`);
   }
   for (let i = 0; i < untracked; i++) fs.writeFileSync(path.join(dir, `u${String(i).padStart(3, "0")}.txt`), `u${i}\n`);
 }
@@ -81,7 +90,7 @@ describe("Phase B — Bash command optimizer (real Bash tool)", () => {
       const repo = freshDir("gitrepo-");
       // 60 commits so `git log` (parseFormat=none) overflows the cap and the spec
       // produces a rewrite; 60 untracked so `git status` has plenty to fold.
-      gitRepo(repo, { commits: 60, untracked: 60 });
+      gitRepo(repo, { commits: 60, untracked: 60, modified: 60 });
       resetIds();
       const turns = {
         gitStatus: toolTurn("Bash", { command: `cd '${repo}' && git status` }),

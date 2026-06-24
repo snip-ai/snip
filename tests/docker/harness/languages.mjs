@@ -1,24 +1,33 @@
 // Every language snip's `read` optimizer supports, as a generated commented
 // fixture. The header name is the registry's LanguageSpec.name (a direct
 // pass-through), so a per-language test can assert "[snip: read | <name>". Each
-// fixture buries SNIP_SECRET_MARKER in a comment block thick enough to shrink
-// past the no-inflation guard, so a passing test proves: the language was
-// detected, comments were stripped, and the model saw the compacted view.
+// fixture buries SNIP_SECRET_MARKER in a comment block.
+//
+// The block must be big enough that stripping it clears the read optimizer's
+// no-inflation guard. That guard weighs the rewrite against a FIXED two-line
+// cost: the `[snip: read | …]` header plus the multi-sentence guidance banner
+// (which embeds the absolute binary path, ~60+ tokens). A handful of short
+// comment lines does NOT beat that banner, so the fixtures use many long lines
+// (~450 tokens of comment) — comfortably past the guard with margin to spare,
+// regardless of how long the install path is. A passing test then proves: the
+// language was detected, comments were stripped, and the model saw the header.
 
 const MARKER = "SNIP_SECRET_MARKER";
-const COMMENT_LINES = 6;
+const COMMENT_LINES = 24;
+const FILLER =
+  "this verbose comment line exists only to outweigh snip's fixed guidance banner";
 
 /** A line-comment fixture: a thick comment block (marker inside) + trivial code. */
 function lineSrc(token, code, prefix = "") {
-  const lines = [`${token} ${MARKER} must never reach the model`];
-  for (let i = 2; i <= COMMENT_LINES; i++) lines.push(`${token} snip strips comment line ${i}`);
+  const lines = [`${token} ${MARKER} must never reach the model — ${FILLER}`];
+  for (let i = 2; i <= COMMENT_LINES; i++) lines.push(`${token} ${FILLER} (line ${i})`);
   return `${prefix}${lines.join("\n")}\n${code}\n`;
 }
 
 /** A block-comment fixture (for languages with no line comment: CSS, HTML). */
 function blockSrc(open, close, code) {
-  const lines = [`${open} ${MARKER} must never reach the model`];
-  for (let i = 2; i <= COMMENT_LINES; i++) lines.push(`   snip strips comment line ${i}`);
+  const lines = [`${open} ${MARKER} must never reach the model — ${FILLER}`];
+  for (let i = 2; i <= COMMENT_LINES; i++) lines.push(`   ${FILLER} (line ${i})`);
   return `${lines.join("\n")} ${close}\n${code}\n`;
 }
 
