@@ -70,6 +70,34 @@ fn shipped_plugin_manifest_matches_the_crate_version() {
 }
 
 #[test]
+fn shipped_plugin_manifest_does_not_redeclare_auto_loaded_hooks() {
+    // Arrange: the in-repo plugin manifest the release actually ships
+    let manifest = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/plugins/snip/.claude-plugin/plugin.json"
+    );
+    let raw = fs::read_to_string(manifest).expect("the shipped plugin manifest is readable");
+    let json: serde_json::Value = serde_json::from_str(&raw).expect("the manifest is valid JSON");
+
+    // Act: does the manifest `hooks` field point at the standard auto-loaded file?
+    let redeclares_auto_loaded = json
+        .get("hooks")
+        .and_then(serde_json::Value::as_str)
+        .is_some_and(|p| p.trim_start_matches("./") == "hooks/hooks.json");
+
+    // Assert: Claude Code auto-loads hooks/hooks.json, so re-declaring it trips
+    // "Duplicate hooks file detected" -> hook-load-failed, silently unregistering
+    // every snip hook (the v0.1.0 production regression).
+    assert!(
+        !redeclares_auto_loaded,
+        "plugin.json must not set `\"hooks\": \"./hooks/hooks.json\"`: Claude Code auto-loads that \
+         standard path, so re-declaring it trips \"Duplicate hooks file detected\" -> \
+         hook-load-failed and silently unregisters every snip hook. Drop the manifest `hooks` \
+         field; the file loads automatically."
+    );
+}
+
+#[test]
 fn plugin_version_is_none_for_malformed_json() {
     // Arrange: a manifest that exists but isn't valid JSON
     let root = env::temp_dir().join(format!("snip-test-badjson-{}", std::process::id()));
