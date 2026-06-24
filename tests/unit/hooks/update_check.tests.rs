@@ -1,25 +1,58 @@
 //! Unit tests for the `update-check` hook, in AAA form. Compiled into `snip_lib`
 //! via a `#[path]` include in `src/hooks/update_check.rs`, so these reach the
-//! private `reconcile`/`throttled`/`touch_state` helpers.
+//! private `run`/`throttled`/`touch_state` helpers.
 
 use std::env;
 use std::fs;
 
 use assert2::check;
 
-use super::{reconcile, run, throttled, touch_state};
+use super::{run, throttled, touch_state};
 use crate::clock::now_secs;
 
 #[test]
-fn run_upholds_the_exit_zero_invariant() {
-    // Arrange: no plugin root → nothing to reconcile, and never an error
-    temp_env::with_var_unset("CLAUDE_PLUGIN_ROOT", || {
+fn run_when_due_records_throttle_and_flags_a_fetch() {
+    // Arrange: an isolated data root with no prior throttle stamp (a fetch is due)
+    let _guard = crate::paths::ENV_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let home = env::temp_dir().join(format!("snip-run-due-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&home);
+    temp_env::with_var("SNIP_HOME", Some(&home), || {
         // Act
-        let result = run(false);
+        let result = run();
 
-        // Assert
+        // Assert: ok, the throttle is recorded, and the fetch sentinel is dropped
         check!(result.is_ok());
+        check!(home.join(".update-check").exists());
+        check!(home.join(".fetch-due").exists());
     });
+
+    // Cleanup
+    let _ = fs::remove_dir_all(&home);
+}
+
+#[test]
+fn run_when_throttled_does_not_flag_a_fetch() {
+    // Arrange: a just-now throttle stamp (within the 24h window) ⇒ not due
+    let _guard = crate::paths::ENV_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let home = env::temp_dir().join(format!("snip-run-throttled-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&home);
+    fs::create_dir_all(&home).unwrap();
+    fs::write(home.join(".update-check"), now_secs().to_string()).unwrap();
+    temp_env::with_var("SNIP_HOME", Some(&home), || {
+        // Act
+        let result = run();
+
+        // Assert: ok, but no fetch is flagged while throttled
+        check!(result.is_ok());
+        check!(!home.join(".fetch-due").exists());
+    });
+
+    // Cleanup
+    let _ = fs::remove_dir_all(&home);
 }
 
 #[test]
@@ -152,150 +185,4 @@ fn touch_state_writes_a_parseable_timestamp() {
 
     // Cleanup
     let _ = fs::remove_dir_all(&home);
-}
-
-#[test]
-fn reconcile_without_a_bootstrap_script_records_throttle() {
-    // Arrange: a plugin root with no scripts dir → nothing to spawn
-    let _guard = crate::paths::ENV_LOCK
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
-    let home = env::temp_dir().join(format!("snip-reconcile-noscript-{}", std::process::id()));
-    let _ = fs::remove_dir_all(&home);
-    let root = env::temp_dir().join(format!(
-        "snip-reconcile-noscript-plugin-{}",
-        std::process::id()
-    ));
-    fs::create_dir_all(&root).unwrap();
-    temp_env::with_vars(
-        [
-            ("SNIP_HOME", Some(home.as_path())),
-            ("CLAUDE_PLUGIN_ROOT", Some(root.as_path())),
-        ],
-        || {
-            // Act
-            let result = reconcile(false);
-
-            // Assert: reconciled, and the throttle file was recorded
-            check!(result == Some(()));
-            check!(home.join(".update-check").exists());
-        },
-    );
-
-    // Cleanup
-    let _ = fs::remove_dir_all(&home);
-    let _ = fs::remove_dir_all(&root);
-}
-
-#[test]
-fn reconcile_with_a_bootstrap_script_spawns_and_returns_some() {
-    // Arrange: a plugin root with a no-op bootstrap script present
-    let _guard = crate::paths::ENV_LOCK
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
-    let home = env::temp_dir().join(format!("snip-reconcile-spawn-{}", std::process::id()));
-    let _ = fs::remove_dir_all(&home);
-    let root = env::temp_dir().join(format!(
-        "snip-reconcile-spawn-plugin-{}",
-        std::process::id()
-    ));
-    let scripts_dir = root.join("scripts");
-    fs::create_dir_all(&scripts_dir).unwrap();
-    fs::write(
-        scripts_dir.join("snip-bootstrap.sh"),
-        "#!/usr/bin/env bash\nexit 0\n",
-    )
-    .unwrap();
-    temp_env::with_vars(
-        [
-            ("SNIP_HOME", Some(home.as_path())),
-            ("CLAUDE_PLUGIN_ROOT", Some(root.as_path())),
-        ],
-        || {
-            // Act: it tries to spawn the bootstrap detached (best-effort)
-            let result = reconcile(false);
-
-            // Assert: never panics, always returns Some (spawn failure is swallowed)
-            check!(result == Some(()));
-        },
-    );
-
-    // Cleanup
-    let _ = fs::remove_dir_all(&home);
-    let _ = fs::remove_dir_all(&root);
-}
-
-#[test]
-fn reconcile_throttled_without_force_keeps_the_existing_timestamp() {
-    // Arrange: a fresh throttle stamp (within the 24h window) → would throttle
-    let _guard = crate::paths::ENV_LOCK
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
-    let home = env::temp_dir().join(format!("snip-reconcile-throttled-{}", std::process::id()));
-    let _ = fs::remove_dir_all(&home);
-    fs::create_dir_all(&home).unwrap();
-    let root = env::temp_dir().join(format!(
-        "snip-reconcile-throttled-plugin-{}",
-        std::process::id()
-    ));
-    fs::create_dir_all(&root).unwrap();
-    let stamp = now_secs() - 100;
-    fs::write(home.join(".update-check"), stamp.to_string()).unwrap();
-    temp_env::with_vars(
-        [
-            ("SNIP_HOME", Some(home.as_path())),
-            ("CLAUDE_PLUGIN_ROOT", Some(root.as_path())),
-        ],
-        || {
-            // Act: not forced → the throttle short-circuits before touch_state
-            let result = reconcile(false);
-
-            // Assert: returned Some, and the stamp is untouched (no re-check happened)
-            check!(result == Some(()));
-            let text = fs::read_to_string(home.join(".update-check")).unwrap();
-            check!(text.trim().parse::<u64>() == Ok(stamp));
-        },
-    );
-
-    // Cleanup
-    let _ = fs::remove_dir_all(&home);
-    let _ = fs::remove_dir_all(&root);
-}
-
-#[test]
-fn reconcile_forced_bypasses_throttle_and_updates_the_timestamp() {
-    // Arrange: the same fresh throttle stamp that would normally short-circuit
-    let _guard = crate::paths::ENV_LOCK
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
-    let home = env::temp_dir().join(format!("snip-reconcile-forced-{}", std::process::id()));
-    let _ = fs::remove_dir_all(&home);
-    fs::create_dir_all(&home).unwrap();
-    let root = env::temp_dir().join(format!(
-        "snip-reconcile-forced-plugin-{}",
-        std::process::id()
-    ));
-    fs::create_dir_all(&root).unwrap();
-    let stamp = now_secs() - 100;
-    fs::write(home.join(".update-check"), stamp.to_string()).unwrap();
-    temp_env::with_vars(
-        [
-            ("SNIP_HOME", Some(home.as_path())),
-            ("CLAUDE_PLUGIN_ROOT", Some(root.as_path())),
-        ],
-        || {
-            // Act: forced → skip the throttle and re-check now
-            let result = reconcile(true);
-
-            // Assert: returned Some, and the stamp advanced past the old one
-            check!(result == Some(()));
-            let text = fs::read_to_string(home.join(".update-check")).unwrap();
-            let written = text.trim().parse::<u64>().unwrap();
-            check!(written > stamp);
-        },
-    );
-
-    // Cleanup
-    let _ = fs::remove_dir_all(&home);
-    let _ = fs::remove_dir_all(&root);
 }

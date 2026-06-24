@@ -12,7 +12,7 @@
 /// Propagates a strict-mode failure from the underlying hook; in production the
 /// hook is infallible (exit-0 invariant).
 pub fn run() -> anyhow::Result<()> {
-    crate::hooks::update_check::run(true)?;
+    crate::hooks::update_check::run()?;
     if std::env::var("CLAUDE_PLUGIN_ROOT").is_ok_and(|v| !v.is_empty()) {
         println!(
             "snip: checked the latest release. A newer binary, if any, is fetched in the \

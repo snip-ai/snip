@@ -6,7 +6,6 @@ use std::fs;
 
 use assert2::check;
 use serde_json::json;
-use tempfile::tempdir;
 
 use crate::support::{Snip, stdout_str};
 
@@ -32,36 +31,37 @@ fn session_reset_drops_only_the_named_session_cache() {
 }
 
 #[test]
-fn update_check_without_a_plugin_root_is_a_noop() {
-    // Arrange: command() already clears CLAUDE_PLUGIN_ROOT
+fn update_check_when_due_records_throttle_and_flags_a_fetch() {
+    // Arrange: a fresh data root (no prior throttle stamp) ⇒ a fetch is due
     let snip = Snip::fresh();
 
     // Act
     let out = snip.run(&["update-check"], "");
 
-    // Assert: silent no-op, exit 0, no throttle file written
-    check!(out.status.success());
-    check!(stdout_str(&out).trim().is_empty());
-    check!(!snip.home().join(".update-check").exists());
-}
-
-#[test]
-fn update_check_without_a_bootstrap_script_records_the_throttle() {
-    // Arrange: a plugin root with no scripts dir ⇒ nothing to spawn
-    let plugin = tempdir().unwrap();
-    let snip = Snip::fresh();
-
-    // Act
-    let out = snip
-        .command()
-        .arg("update-check")
-        .env("CLAUDE_PLUGIN_ROOT", plugin.path())
-        .write_stdin(String::new())
-        .output()
-        .expect("snip runs");
-
-    // Assert: silent, exit 0, and the once-a-day throttle stamp is on disk
+    // Assert: silent, exit 0, the throttle is recorded, and the `.fetch-due`
+    // sentinel is dropped for snip-run.sh — which does the actual spawn, because a
+    // native binary can't spawn a shell that survives its own exit on Windows
     check!(out.status.success());
     check!(stdout_str(&out).trim().is_empty());
     check!(snip.home().join(".update-check").exists());
+    check!(snip.home().join(".fetch-due").exists());
+}
+
+#[test]
+fn update_check_when_throttled_is_a_silent_noop() {
+    // Arrange: a just-now throttle stamp (within the 24h window)
+    let snip = Snip::fresh();
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("clock after the epoch")
+        .as_secs();
+    fs::write(snip.home().join(".update-check"), now.to_string()).unwrap();
+
+    // Act
+    let out = snip.run(&["update-check"], "");
+
+    // Assert: silent no-op, exit 0, and no fetch is flagged while throttled
+    check!(out.status.success());
+    check!(stdout_str(&out).trim().is_empty());
+    check!(!snip.home().join(".fetch-due").exists());
 }
