@@ -63,6 +63,8 @@ pub enum Command {
     Enable,
     /// Disable the master switch.
     Disable,
+    /// Remove snip's data, binary, and PATH line (the plugin is removed separately).
+    Uninstall,
 }
 
 impl Command {
@@ -88,6 +90,7 @@ impl Command {
             Self::Config { args } => commands::config_cmd::run(&args),
             Self::Enable => commands::config_cmd::set_enabled(true),
             Self::Disable => commands::config_cmd::set_enabled(false),
+            Self::Uninstall => commands::uninstall::run(),
         }
     }
 }
