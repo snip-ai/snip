@@ -38,12 +38,7 @@ pub fn run() -> anyhow::Result<()> {
             let _ = fs::write(dir.join(UNINSTALL_MARKER), b"");
             purge_state(&dir);
             remove_binary(&dir);
-            let note = if cfg!(windows) {
-                " (binary removed on exit)"
-            } else {
-                ""
-            };
-            println!("  removed snip state under {}{note}", dir.display());
+            println!("  removed snip state under {}", dir.display());
         }
         _ => println!("  no data dir found (nothing to remove)"),
     }
@@ -84,29 +79,12 @@ fn remove_binary(data_dir: &Path) {
 }
 
 #[cfg(windows)]
-/// Defer: Windows can't delete a running `.exe`, so a windowless PowerShell that
-/// outlives this process removes `bin/`, retrying while the binary stays locked.
-fn remove_binary(data_dir: &Path) {
-    use std::os::windows::process::CommandExt;
-    use std::process::{Command, Stdio};
-
-    let bin = data_dir.join("bin").to_string_lossy().replace('\'', "''");
-    let script = format!(
-        "1..40 | ForEach-Object {{ try {{ Remove-Item -LiteralPath '{bin}' -Recurse -Force \
-         -ErrorAction Stop; break }} catch {{ Start-Sleep -Milliseconds 250 }} }}"
-    );
-    let mut cmd = Command::new("powershell");
-    // CREATE_NO_WINDOW only (no DETACHED_PROCESS 0x8): a detached child does not
-    // outlive this process when it exits immediately after spawn, so the binary
-    // would never be removed. CREATE_NO_WINDOW gives the child a hidden console
-    // and it finishes the delete in the background. (Verified empirically.)
-    cmd.args(["-NoProfile", "-NonInteractive", "-Command", &script])
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .creation_flags(0x0800_0000);
-    let _ = cmd.spawn();
-}
+#[allow(clippy::missing_const_for_fn)] // signature parity with the Unix arm (which can't be const)
+/// No-op on Windows: a native `.exe` cannot delete its own running file, and a
+/// detached shell it spawns does not survive this process exiting (verified). The
+/// git-bash `snip-uninstall.sh` wrapper — which outlives the binary it runs —
+/// removes `bin/` instead, keeping every command on git bash.
+fn remove_binary(_data_dir: &Path) {}
 
 #[cfg(test)]
 #[path = "../../tests/unit/commands/uninstall.tests.rs"]
