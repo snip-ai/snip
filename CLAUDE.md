@@ -32,7 +32,7 @@ base shell / git / per-language-framework), `search` (Grep/Glob).
 | Bash | PreToolUse/Bash | `bash-route` → `exec` | `command` |
 | Edit / Write | PreToolUse | `edit-fix` / `write-guard` | `read` |
 | PreCompact | PreCompact | `session-reset` | clears the session cache |
-| SessionStart | SessionStart | `update-check` | binary ↔ plugin version |
+| SessionStart | SessionStart | `update-check` | binary ↔ latest release |
 
 ## Non-negotiables
 

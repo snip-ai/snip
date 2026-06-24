@@ -21,7 +21,7 @@ lives in [`support.rs`](support.rs) (`Snip::fresh()` / `.command()` / `.run()`).
 | `search_hooks.tests.rs` | `grep-hook` / `glob-hook`: reducible output → rewrite; tiny output → pass-through; glob directory grouping |
 | `command.tests.rs` | `bash-route`: wrappable → `snip exec` rewrite; already-wrapped / disabled → pass-through. `exec`: verbatim run + exit-code preservation |
 | `edit_write.tests.rs` | `edit-fix`: verbatim / missing-file pass-through. `write-guard`: stripped-view reproduction → `ask`; new file / genuine write → pass-through |
-| `maintenance.tests.rs` | `session-reset`: drops only the named session cache. `update-check`: no-plugin-root no-op; matching version writes the throttle, no respawn |
+| `maintenance.tests.rs` | `session-reset`: drops only the named session cache. `update-check`: no-plugin-root no-op; with a plugin root but no bootstrap script, writes the throttle, no respawn |
 | `cli.tests.rs` | `config` get/set/list, `enable`/`disable`, `status`, `gain`, `resolve` (match + no-match), `--version`, unknown subcommand (clap exit 2) |
 | `robustness.tests.rs` | the always-exit-0 invariant: every hook × {empty, whitespace, malformed, wrong-shape} stdin → exit 0, empty stdout |
 

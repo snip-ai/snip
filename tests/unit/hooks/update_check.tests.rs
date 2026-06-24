@@ -1,13 +1,13 @@
 //! Unit tests for the `update-check` hook, in AAA form. Compiled into `snip_lib`
 //! via a `#[path]` include in `src/hooks/update_check.rs`, so these reach the
-//! private `plugin_version` helper.
+//! private `reconcile`/`throttled`/`touch_state` helpers.
 
 use std::env;
 use std::fs;
 
 use assert2::check;
 
-use super::{plugin_version, reconcile, run, throttled, touch_state};
+use super::{reconcile, run, throttled, touch_state};
 use crate::clock::now_secs;
 
 #[test]
@@ -15,7 +15,7 @@ fn run_upholds_the_exit_zero_invariant() {
     // Arrange: no plugin root → nothing to reconcile, and never an error
     temp_env::with_var_unset("CLAUDE_PLUGIN_ROOT", || {
         // Act
-        let result = run();
+        let result = run(false);
 
         // Assert
         check!(result.is_ok());
@@ -23,50 +23,20 @@ fn run_upholds_the_exit_zero_invariant() {
 }
 
 #[test]
-fn plugin_version_reads_the_manifest() {
-    // Arrange: a throwaway plugin root carrying a manifest
-    let root = env::temp_dir().join(format!("snip-test-plugin-{}", std::process::id()));
-    let manifest_dir = root.join(".claude-plugin");
-    fs::create_dir_all(&manifest_dir).unwrap();
-    fs::write(
-        manifest_dir.join("plugin.json"),
-        r#"{"name":"snip","version":"1.2.3"}"#,
-    )
-    .unwrap();
-
-    // Act
-    let version = plugin_version(root.to_str().unwrap());
-
-    // Assert
-    check!(version.as_deref() == Some("1.2.3"));
-
-    // Cleanup
-    let _ = fs::remove_dir_all(&root);
-}
-
-#[test]
-fn plugin_version_is_none_without_a_manifest() {
-    // Arrange: a path with no manifest
-    let root = env::temp_dir().join(format!("snip-test-noplugin-{}", std::process::id()));
-    let _ = fs::remove_dir_all(&root);
-
-    // Act
-    let version = plugin_version(root.to_str().unwrap());
-
-    // Assert
-    check!(version.is_none());
-}
-
-#[test]
 fn shipped_plugin_manifest_matches_the_crate_version() {
     // Arrange: the in-repo plugin manifest the release actually ships
-    let root = concat!(env!("CARGO_MANIFEST_DIR"), "/plugins/snip");
+    let manifest = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/plugins/snip/.claude-plugin/plugin.json"
+    );
+    let raw = fs::read_to_string(manifest).expect("the shipped plugin manifest is readable");
+    let json: serde_json::Value = serde_json::from_str(&raw).expect("the manifest is valid JSON");
 
     // Act
-    let version = plugin_version(root);
+    let version = json.get("version").and_then(serde_json::Value::as_str);
 
     // Assert: plugin.json and Cargo.toml must never drift (release-please bumps both)
-    check!(version.as_deref() == Some(env!("CARGO_PKG_VERSION")));
+    check!(version == Some(env!("CARGO_PKG_VERSION")));
 }
 
 #[test]
@@ -95,24 +65,6 @@ fn shipped_plugin_manifest_does_not_redeclare_auto_loaded_hooks() {
          hook-load-failed and silently unregisters every snip hook. Drop the manifest `hooks` \
          field; the file loads automatically."
     );
-}
-
-#[test]
-fn plugin_version_is_none_for_malformed_json() {
-    // Arrange: a manifest that exists but isn't valid JSON
-    let root = env::temp_dir().join(format!("snip-test-badjson-{}", std::process::id()));
-    let manifest_dir = root.join(".claude-plugin");
-    fs::create_dir_all(&manifest_dir).unwrap();
-    fs::write(manifest_dir.join("plugin.json"), "{ not: valid json").unwrap();
-
-    // Act
-    let version = plugin_version(root.to_str().unwrap());
-
-    // Assert
-    check!(version.is_none());
-
-    // Cleanup
-    let _ = fs::remove_dir_all(&root);
 }
 
 #[test]
@@ -203,24 +155,18 @@ fn touch_state_writes_a_parseable_timestamp() {
 }
 
 #[test]
-fn reconcile_without_drift_writes_throttle_and_does_not_respawn() {
-    // Arrange: a plugin root whose version equals this crate's → no drift
+fn reconcile_without_a_bootstrap_script_records_throttle() {
+    // Arrange: a plugin root with no scripts dir → nothing to spawn
     let _guard = crate::paths::ENV_LOCK
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
-    let home = env::temp_dir().join(format!("snip-reconcile-ok-{}", std::process::id()));
+    let home = env::temp_dir().join(format!("snip-reconcile-noscript-{}", std::process::id()));
     let _ = fs::remove_dir_all(&home);
-    let root = env::temp_dir().join(format!("snip-reconcile-ok-plugin-{}", std::process::id()));
-    let manifest_dir = root.join(".claude-plugin");
-    fs::create_dir_all(&manifest_dir).unwrap();
-    fs::write(
-        manifest_dir.join("plugin.json"),
-        format!(
-            r#"{{"name":"snip","version":"{}"}}"#,
-            env!("CARGO_PKG_VERSION")
-        ),
-    )
-    .unwrap();
+    let root = env::temp_dir().join(format!(
+        "snip-reconcile-noscript-plugin-{}",
+        std::process::id()
+    ));
+    fs::create_dir_all(&root).unwrap();
     temp_env::with_vars(
         [
             ("SNIP_HOME", Some(home.as_path())),
@@ -228,7 +174,7 @@ fn reconcile_without_drift_writes_throttle_and_does_not_respawn() {
         ],
         || {
             // Act
-            let result = reconcile();
+            let result = reconcile(false);
 
             // Assert: reconciled, and the throttle file was recorded
             check!(result == Some(()));
@@ -242,26 +188,19 @@ fn reconcile_without_drift_writes_throttle_and_does_not_respawn() {
 }
 
 #[test]
-fn reconcile_on_drift_spawns_and_returns_some() {
-    // Arrange: a plugin root whose version differs, with a bootstrap script present
+fn reconcile_with_a_bootstrap_script_spawns_and_returns_some() {
+    // Arrange: a plugin root with a no-op bootstrap script present
     let _guard = crate::paths::ENV_LOCK
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
-    let home = env::temp_dir().join(format!("snip-reconcile-drift-{}", std::process::id()));
+    let home = env::temp_dir().join(format!("snip-reconcile-spawn-{}", std::process::id()));
     let _ = fs::remove_dir_all(&home);
     let root = env::temp_dir().join(format!(
-        "snip-reconcile-drift-plugin-{}",
+        "snip-reconcile-spawn-plugin-{}",
         std::process::id()
     ));
-    let manifest_dir = root.join(".claude-plugin");
     let scripts_dir = root.join("scripts");
-    fs::create_dir_all(&manifest_dir).unwrap();
     fs::create_dir_all(&scripts_dir).unwrap();
-    fs::write(
-        manifest_dir.join("plugin.json"),
-        r#"{"name":"snip","version":"9.9.9"}"#,
-    )
-    .unwrap();
     fs::write(
         scripts_dir.join("snip-bootstrap.sh"),
         "#!/usr/bin/env bash\nexit 0\n",
@@ -273,11 +212,86 @@ fn reconcile_on_drift_spawns_and_returns_some() {
             ("CLAUDE_PLUGIN_ROOT", Some(root.as_path())),
         ],
         || {
-            // Act: drift detected → it tries to spawn the bootstrap detached (best-effort)
-            let result = reconcile();
+            // Act: it tries to spawn the bootstrap detached (best-effort)
+            let result = reconcile(false);
 
             // Assert: never panics, always returns Some (spawn failure is swallowed)
             check!(result == Some(()));
+        },
+    );
+
+    // Cleanup
+    let _ = fs::remove_dir_all(&home);
+    let _ = fs::remove_dir_all(&root);
+}
+
+#[test]
+fn reconcile_throttled_without_force_keeps_the_existing_timestamp() {
+    // Arrange: a fresh throttle stamp (within the 24h window) → would throttle
+    let _guard = crate::paths::ENV_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let home = env::temp_dir().join(format!("snip-reconcile-throttled-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&home);
+    fs::create_dir_all(&home).unwrap();
+    let root = env::temp_dir().join(format!(
+        "snip-reconcile-throttled-plugin-{}",
+        std::process::id()
+    ));
+    fs::create_dir_all(&root).unwrap();
+    let stamp = now_secs() - 100;
+    fs::write(home.join(".update-check"), stamp.to_string()).unwrap();
+    temp_env::with_vars(
+        [
+            ("SNIP_HOME", Some(home.as_path())),
+            ("CLAUDE_PLUGIN_ROOT", Some(root.as_path())),
+        ],
+        || {
+            // Act: not forced → the throttle short-circuits before touch_state
+            let result = reconcile(false);
+
+            // Assert: returned Some, and the stamp is untouched (no re-check happened)
+            check!(result == Some(()));
+            let text = fs::read_to_string(home.join(".update-check")).unwrap();
+            check!(text.trim().parse::<u64>() == Ok(stamp));
+        },
+    );
+
+    // Cleanup
+    let _ = fs::remove_dir_all(&home);
+    let _ = fs::remove_dir_all(&root);
+}
+
+#[test]
+fn reconcile_forced_bypasses_throttle_and_updates_the_timestamp() {
+    // Arrange: the same fresh throttle stamp that would normally short-circuit
+    let _guard = crate::paths::ENV_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let home = env::temp_dir().join(format!("snip-reconcile-forced-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&home);
+    fs::create_dir_all(&home).unwrap();
+    let root = env::temp_dir().join(format!(
+        "snip-reconcile-forced-plugin-{}",
+        std::process::id()
+    ));
+    fs::create_dir_all(&root).unwrap();
+    let stamp = now_secs() - 100;
+    fs::write(home.join(".update-check"), stamp.to_string()).unwrap();
+    temp_env::with_vars(
+        [
+            ("SNIP_HOME", Some(home.as_path())),
+            ("CLAUDE_PLUGIN_ROOT", Some(root.as_path())),
+        ],
+        || {
+            // Act: forced → skip the throttle and re-check now
+            let result = reconcile(true);
+
+            // Assert: returned Some, and the stamp advanced past the old one
+            check!(result == Some(()));
+            let text = fs::read_to_string(home.join(".update-check")).unwrap();
+            let written = text.trim().parse::<u64>().unwrap();
+            check!(written > stamp);
         },
     );
 
