@@ -85,6 +85,13 @@ snip works the moment it's installed — there's nothing to run. When you want t
 | `/snip-config` | Get / set / list / reset settings |
 | `/snip-enable` · `/snip-disable` | Flip the master switch |
 | `/snip-update` | Sync the binary with the installed plugin |
+| `/snip-shell-setup` | **Opt-in:** put the binary on your `PATH` to run `snip …` from a shell (`remove` to undo) |
+
+Prefer a terminal? The slash-commands are thin wrappers over subcommands of the
+installed binary, so `snip status`, `snip gain`, and `snip config list` also work
+straight from a shell. `/snip-shell-setup` puts the binary on your `PATH` — a
+convenience for reaching the already-installed binary, not a new install or update
+channel (those still flow only through the plugin).
 
 ---
 

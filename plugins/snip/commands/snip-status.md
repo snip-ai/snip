@@ -2,6 +2,7 @@
 description: Show snip's status: version, master switch, and per-optimizer state
 model: haiku
 effort: low
+disable-model-invocation: true
 ---
 
 !`bash "${CLAUDE_PLUGIN_ROOT}/scripts/snip-run.sh" status`

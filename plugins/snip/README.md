@@ -46,6 +46,17 @@ the plugin — there is no separate installer, and snip never patches your
 | `/snip-config` | Get / set / list / reset configuration (dotted paths) |
 | `/snip-enable` · `/snip-disable` | Master switch on / off |
 | `/snip-update` | Re-check the version and fetch the matching binary |
+| `/snip-shell-setup` | **Opt-in:** put the binary on your `PATH` so `snip …` runs from a shell (`remove` to undo) |
+
+## Run snip from a shell (optional)
+
+The same commands behind the slash-commands are subcommands of the installed
+binary, so you can also run `snip status`, `snip gain`, or `snip config list`
+straight from a shell. The binary just isn't on your `PATH` by default.
+`/snip-shell-setup` adds it (writing one clearly-marked line to your shell rc;
+`/snip-shell-setup remove` takes it back out). This is purely a convenience for
+reaching the **already-installed** binary — it adds no install or update channel,
+both of which still flow only through the plugin.
 
 ## Platforms
 

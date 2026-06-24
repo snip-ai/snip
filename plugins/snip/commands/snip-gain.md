@@ -3,6 +3,7 @@ description: Report snip's net token savings (input saved minus induced re-read 
 argument-hint: "[--history]"
 model: haiku
 effort: low
+disable-model-invocation: true
 ---
 
 !`bash "${CLAUDE_PLUGIN_ROOT}/scripts/snip-run.sh" gain $ARGUMENTS`
