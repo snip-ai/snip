@@ -24,6 +24,8 @@ export const SNIP_RUN = path.join(PLUGIN_ROOT, "scripts", "snip-run.sh");
 /** The plugin's self-install script — `snip-bootstrap.sh <version> <home>`. */
 export const SNIP_BOOTSTRAP = path.join(PLUGIN_ROOT, "scripts", "snip-bootstrap.sh");
 
+export const SNIP_SHELL_SETUP = path.join(PLUGIN_ROOT, "scripts", "snip-shell-setup.sh");
+
 /** A fresh auto-namespaced temp directory under the OS tmp root. */
 export function freshDir(prefix = "snip-docker-") {
   return fs.mkdtempSync(path.join(os.tmpdir(), prefix));

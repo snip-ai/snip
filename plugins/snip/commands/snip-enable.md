@@ -2,6 +2,7 @@
 description: Enable snip by turning the master switch on
 model: haiku
 effort: low
+disable-model-invocation: true
 ---
 
 !`bash "${CLAUDE_PLUGIN_ROOT}/scripts/snip-run.sh" enable`
