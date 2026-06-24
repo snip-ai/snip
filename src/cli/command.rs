@@ -24,12 +24,8 @@ pub enum Command {
     WriteGuard,
     /// `PreCompact` hook — clear the session cache.
     SessionReset,
-    /// `SessionStart` hook — fetch the latest release binary if newer.
-    UpdateCheck {
-        /// Skip the once-a-day throttle (manual `/snip-update`).
-        #[arg(long)]
-        force: bool,
-    },
+    /// `SessionStart` hook — drain stats and flag a self-update when due.
+    UpdateCheck,
     /// Run a wrapped Bash command on its exact bytes.
     Exec {
         /// The wrapped command and its arguments.
@@ -83,7 +79,7 @@ impl Command {
             Self::EditFix => Dispatcher::new(Surface::Edit).run(),
             Self::WriteGuard => Dispatcher::new(Surface::Write).run(),
             Self::SessionReset => hooks::session_reset::run(),
-            Self::UpdateCheck { force } => hooks::update_check::run(force),
+            Self::UpdateCheck => hooks::update_check::run(),
             Self::Exec { args } => crate::optimizers::command::exec::run(&args),
             Self::Resolve { file } => commands::resolve::run(&file),
             Self::StatRecord { args } => crate::stats::recorder::run(&args),
