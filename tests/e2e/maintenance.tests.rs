@@ -46,15 +46,9 @@ fn update_check_without_a_plugin_root_is_a_noop() {
 }
 
 #[test]
-fn update_check_at_matching_version_records_the_throttle_and_does_not_respawn() {
-    // Arrange: a plugin root declaring the binary's own version ⇒ no drift
+fn update_check_without_a_bootstrap_script_records_the_throttle() {
+    // Arrange: a plugin root with no scripts dir ⇒ nothing to spawn
     let plugin = tempdir().unwrap();
-    fs::create_dir_all(plugin.path().join(".claude-plugin")).unwrap();
-    fs::write(
-        plugin.path().join(".claude-plugin").join("plugin.json"),
-        json!({"version": env!("CARGO_PKG_VERSION")}).to_string(),
-    )
-    .unwrap();
     let snip = Snip::fresh();
 
     // Act

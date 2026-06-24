@@ -37,6 +37,17 @@ dir; hooks then run it by absolute path. Install **and** updates both flow throu
 the plugin — there is no separate installer, and snip never patches your
 `settings.json`.
 
+## Updates
+
+Two layers, two channels. The **binary** self-updates: on `SessionStart` snip
+checks the latest GitHub release in the background and fetches it (checksum-verified)
+when the running binary is older — independent of the plugin manifest version, which
+a third-party marketplace does not auto-refresh. `/snip-update` forces a check now.
+The **plugin wiring** (hooks, slash-commands, manifest) refreshes only when Claude
+Code re-pulls the marketplace; enable auto-update for the `snip` marketplace once
+(`/plugin` menu, or `"autoUpdate": true` on its `extraKnownMarketplaces` entry), or
+run `/plugin marketplace update snip` + `/plugin install snip@snip` on demand.
+
 ## Slash-commands
 
 | Command | What it does |
@@ -45,7 +56,7 @@ the plugin — there is no separate installer, and snip never patches your
 | `/snip-status` | Version, master switch, and per-optimizer state |
 | `/snip-config` | Get / set / list / reset configuration (dotted paths) |
 | `/snip-enable` · `/snip-disable` | Master switch on / off |
-| `/snip-update` | Re-check the version and fetch the matching binary |
+| `/snip-update` | Check for the latest release and fetch the binary if newer |
 | `/snip-shell-setup` | **Opt-in:** put the binary on your `PATH` so `snip …` runs from a shell (`remove` to undo) |
 
 ## Run snip from a shell (optional)

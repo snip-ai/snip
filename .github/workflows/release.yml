@@ -6,8 +6,8 @@ name: Release
 # (Building here avoids the GitHub limitation where a GITHUB_TOKEN-created tag
 # does not trigger separate workflows.) The release PR also bumps the plugin
 # manifest version (release-please `extra-files`), so plugins/snip/.claude-plugin/
-# plugin.json stays in lockstep with the release tag the SessionStart update-check
-# reconciles against.
+# plugin.json reports the right version (e.g. in `/snip-status`); the SessionStart
+# update-check tracks the latest release directly, independent of that manifest.
 
 on:
   push:

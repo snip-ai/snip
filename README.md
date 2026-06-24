@@ -61,6 +61,17 @@ On first run, the plugin grabs the prebuilt binary for your platform, verifies i
 
 ---
 
+## 🔄 Staying up to date
+
+snip updates in two layers, and they refresh through different channels:
+
+- **The binary** — where all the optimizing happens — **updates itself automatically.** On session start snip checks the latest GitHub release in the background and, if a newer build exists, fetches and checksum-verifies it so it's live next session. Nothing to run; `/snip-update` forces an immediate check.
+- **The plugin wiring** (hooks, slash-commands, manifest) refreshes when Claude Code re-pulls the marketplace. Claude Code does **not** auto-refresh third-party marketplaces by default, so to keep this hands-off, enable auto-update for the `snip` marketplace **once** — toggle it in the `/plugin` menu, or add `"autoUpdate": true` to the `snip` entry under `extraKnownMarketplaces` in your settings. Otherwise refresh on demand with `/plugin marketplace update snip` then `/plugin install snip@snip`.
+
+In practice the binary — the part you actually feel — stays current on its own. The one-time marketplace opt-in only matters for releases that change the hooks or slash-commands themselves; if the wiring ever lags, the manual refresh above pulls it forward.
+
+---
+
 ## 🧠 How it works
 
 snip hooks into Claude Code's **native tools** and rewrites their output in flight — so the model just receives a leaner version, with no idea snip was ever there.
@@ -84,7 +95,7 @@ snip works the moment it's installed — there's nothing to run. When you want t
 | `/snip-status` | Version, master switch, and per-optimizer state |
 | `/snip-config` | Get / set / list / reset settings |
 | `/snip-enable` · `/snip-disable` | Flip the master switch |
-| `/snip-update` | Sync the binary with the installed plugin |
+| `/snip-update` | Force a check for the latest release and fetch it if newer |
 | `/snip-shell-setup` | **Opt-in:** put the binary on your `PATH` to run `snip …` from a shell (`remove` to undo) |
 
 Prefer a terminal? The slash-commands are thin wrappers over subcommands of the

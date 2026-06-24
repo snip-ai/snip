@@ -1,12 +1,14 @@
-//! `SessionStart` hook: keep the managed binary in lockstep with the plugin.
+//! `SessionStart` hook: keep the managed binary on the latest release.
 //!
 //! snip is installed and updated **only** through the Claude Code plugin. This
-//! hook reconciles the running binary's version against the plugin's declared
-//! version and, on drift, re-runs the bootstrap **detached** so the next session
-//! uses the matching binary. It also drains the hot-path stats append-log into
-//! `SQLite` (off the hot path — `SessionStart` is not a tool hook), keeping the log
-//! bounded between `gain`/`status` reads. It never blocks startup and writes
-//! nothing to stdout.
+//! hook re-runs the bootstrap **detached** so it resolves the latest GitHub
+//! release and, when the running binary is older, fetches the matching binary
+//! for the next session. The fetch target is the release, **not** the plugin
+//! manifest version: a third-party marketplace does not auto-refresh the
+//! manifest, so the binary must self-heal independently of it. It also drains the
+//! hot-path stats append-log into `SQLite` (off the hot path — `SessionStart` is
+//! not a tool hook), keeping the log bounded between `gain`/`status` reads. It
+//! never blocks startup and writes nothing to stdout.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -21,9 +23,13 @@ const THROTTLE_SECS: u64 = 24 * 3600;
 /// any failure degrades to a no-op. Strict debug mode
 /// ([`crate::panic_guard::strict`]) surfaces a panic as a non-zero exit.
 ///
+/// `force` skips the once-a-day throttle — set by the manual `/snip-update`
+/// command so a user can pull a fresh release immediately; the `SessionStart`
+/// hook leaves it `false`.
+///
 /// # Errors
 /// Only under `SNIP_DEBUG` (strict mode); otherwise never.
-pub fn run() -> anyhow::Result<()> {
+pub fn run(force: bool) -> anyhow::Result<()> {
     // Defense-in-depth: this maintenance hook bypasses the Dispatcher, so guard it
     // here too — a panic must never break exit-0 in production.
     crate::panic_guard::guarded("update-check", || {
@@ -31,28 +37,30 @@ pub fn run() -> anyhow::Result<()> {
         // append-log into SQLite so it stays bounded even if `gain`/`status` are
         // never run. Best-effort.
         crate::stats::Tracker::drain();
-        let _ = reconcile();
+        let _ = reconcile(force);
         Ok(())
     })
 }
 
-/// Re-bootstrap the managed binary when its version drifts from the plugin's.
-fn reconcile() -> Option<()> {
+/// Re-bootstrap so the managed binary tracks the latest release.
+///
+/// The fetch target is the latest GitHub release (resolved by the bootstrap),
+/// not the plugin manifest version: a third-party marketplace does not
+/// auto-refresh the manifest, so trusting it would pin the binary to whatever
+/// version was first installed. The bootstrap is handed the running binary's
+/// version and skips the download when it already matches the latest.
+fn reconcile(force: bool) -> Option<()> {
     let plugin_root = std::env::var("CLAUDE_PLUGIN_ROOT").ok()?;
-    if throttled() {
+    if !force && throttled() {
         return Some(());
     }
     touch_state();
-    let want = plugin_version(&plugin_root)?;
-    if want == env!("CARGO_PKG_VERSION") {
-        return Some(());
-    }
     let script = PathBuf::from(&plugin_root)
         .join("scripts")
         .join("snip-bootstrap.sh");
     let home = crate::paths::data_dir()?;
     if script.exists() {
-        spawn_bootstrap(&script, &want, &home);
+        spawn_bootstrap(&script, &home);
     }
     Some(())
 }
@@ -86,23 +94,16 @@ fn touch_state() {
     let _ = fs::write(&path, now_secs().to_string());
 }
 
-/// Read the plugin's declared version from `<root>/.claude-plugin/plugin.json`.
-fn plugin_version(plugin_root: &str) -> Option<String> {
-    let path = PathBuf::from(plugin_root)
-        .join(".claude-plugin")
-        .join("plugin.json");
-    let text = fs::read_to_string(path).ok()?;
-    let value: serde_json::Value = serde_json::from_str(&text).ok()?;
-    value.get("version")?.as_str().map(str::to_owned)
-}
-
 /// Spawn the bootstrap script detached (null stdio, no console) so the
-/// `SessionStart` hook returns immediately.
-fn spawn_bootstrap(script: &Path, version: &str, home: &Path) {
+/// `SessionStart` hook returns immediately. The empty version argument tells the
+/// bootstrap to resolve the latest release; the current binary version lets it
+/// skip the download when already up to date.
+fn spawn_bootstrap(script: &Path, home: &Path) {
     let mut cmd = Command::new("bash");
     cmd.arg(script)
-        .arg(version)
+        .arg("")
         .arg(home)
+        .arg(env!("CARGO_PKG_VERSION"))
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null());

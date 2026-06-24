@@ -4,8 +4,8 @@
 # Resolve the managed binary under the OS data dir and exec it, forwarding all
 # args + stdin untouched. On the very first run (binary absent) at SessionStart,
 # kick off a DETACHED bootstrap so the next session is optimized — without ever
-# blocking a hook. Version drift (binary present but != plugin version) is handled
-# by the binary's own `update-check`. This script ALWAYS exits 0: a hook must
+# blocking a hook. Keeping an installed binary current (fetching a newer release)
+# is handled by the binary's own `update-check`. This script ALWAYS exits 0: a hook must
 # never fail (empty stdout + exit 0 = "no change", Claude Code keeps the original).
 set -u
 

@@ -1,20 +1,23 @@
 #!/usr/bin/env bash
 # snip plugin bootstrap — download the prebuilt binary for this platform and
 # install it under the OS data dir. Invoked detached by snip-run.sh on first run
-# and by the binary's `update-check` on version drift. Idempotent and best-effort:
+# and by the binary's `update-check` to fetch a newer release. Idempotent and best-effort:
 # any failure (offline, unsupported platform) installs nothing and exits 0 — the
 # hooks degrade to pass-through until a later attempt succeeds. Integrity, however,
 # is fail-CLOSED: a missing/empty checksum sidecar, an unavailable hasher, or any
 # mismatch installs NOTHING. Availability may degrade; an UNVERIFIED native binary
 # must never be installed and run.
 #
-# Usage: snip-bootstrap.sh <version> <data-dir>
+# Usage: snip-bootstrap.sh <version> <data-dir> [current]
 #   <version>  release version WITHOUT the leading 'v' (e.g. 0.1.0). Empty => latest.
 #   <data-dir> snip data dir; the binary lands at <data-dir>/bin/snip[.exe].
+#   [current]  the running binary's version; with an empty <version>, skip the
+#              download when the resolved latest release already equals it.
 set -u
 
 VERSION="${1:-}"
 HOME_DIR="${2:-}"
+CURRENT="${3:-}"
 REPO="snip-ai/snip"
 RELEASES_API="${SNIP_RELEASES_API:-https://api.github.com/repos/$REPO/releases}"
 DOWNLOAD_BASE="${SNIP_DOWNLOAD_BASE:-https://github.com/$REPO/releases/download}"
@@ -48,6 +51,9 @@ if [ -z "$VERSION" ]; then
     | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"v\{0,1\}\([^"]*\)".*/\1/p' | head -n1)"
 fi
 [ -n "$VERSION" ] || exit 0
+# Already on the resolved version? Nothing to do (only when the caller told us
+# the installed version — first-install passes an explicit <version> and no CURRENT).
+[ -z "$CURRENT" ] || [ "$VERSION" != "$CURRENT" ] || exit 0
 
 ASSET="snip-${TARGET}.${EXT}"
 URL="$DOWNLOAD_BASE/v${VERSION}/${ASSET}"
