@@ -53,6 +53,8 @@ pub enum Command {
     Gain,
     /// Print version, enabled state, and savings.
     Status,
+    /// Force a re-check against the latest release (manual `/snip update`).
+    Update,
     /// Get/set/list/reset configuration.
     Config {
         /// The config arguments (e.g. `set overflow.max_tokens 4000`).
@@ -87,6 +89,7 @@ impl Command {
             Self::StatRecord { args } => crate::stats::recorder::run(&args),
             Self::Gain => commands::gain::run(),
             Self::Status => commands::status::run(),
+            Self::Update => commands::update::run(),
             Self::Config { args } => commands::config_cmd::run(&args),
             Self::Enable => commands::config_cmd::set_enabled(true),
             Self::Disable => commands::config_cmd::set_enabled(false),

@@ -11,3 +11,4 @@ pub mod resolve;
 pub mod shell_path;
 pub mod status;
 pub mod uninstall;
+pub mod update;

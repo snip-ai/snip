@@ -100,6 +100,19 @@ fn gain_is_ok_on_an_empty_stats_store() {
 }
 
 #[test]
+fn update_without_a_plugin_root_is_ok_and_explains() {
+    // Arrange — the harness clears CLAUDE_PLUGIN_ROOT, so there is no installer
+    let snip = Snip::fresh();
+
+    // Act
+    let out = snip.run(&["update"], "");
+
+    // Assert: exits 0 and points the user at the plugin (no silent failure)
+    check!(out.status.success());
+    check!(stdout_str(&out).contains("updates flow through the plugin"));
+}
+
+#[test]
 fn resolve_echoes_a_verbatim_match() {
     // Arrange: a file containing the needle the model pipes in
     let dir = tempdir().unwrap();
