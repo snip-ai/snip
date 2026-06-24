@@ -49,9 +49,18 @@ base shell / git / per-language-framework), `search` (Grep/Glob).
 
 ## Distribution
 
-**Claude Code plugin only** — install **and** updates both flow through the plugin
-(marketplace / self-installing). **No** cargo/crates.io/npm, **no** curl /
-PowerShell installer. There is therefore no `init` or `self-update` subcommand.
+**Claude Code plugin only** as the entry point — **no** cargo/crates.io/npm and
+**no** curl / PowerShell installer. The plugin is a thin **bootstrap seed**: it
+registers the hooks and ships a tiny bootstrap script that downloads the prebuilt
+binary (checksum-verified) on first run. From there the **binary owns its own
+lifecycle**: it self-updates to the latest release on `SessionStart` (the
+marketplace does not auto-refresh a third-party manifest), opts the user into a
+removable `PATH` line on first install so `snip …` runs straight from a shell, and
+tears itself down via `snip uninstall`. There is no `init` or `self-update`
+subcommand (update is the `update-check` hook; teardown is `uninstall`). **Every
+command runs through git bash** — on Windows too — so snip never reaches for
+PowerShell/cmd (a native `.exe` also can't spawn a detached shell that survives
+its own exit, so `uninstall` removes the binary from a git-bash wrapper instead).
 
 ## Commands
 
@@ -68,9 +77,11 @@ mutate env via the `temp-env` crate (never `std::env::set_var`, unsafe in 2024).
 
 snip subcommands (dispatched in `src/cli/command.rs`): `read-hook`, `grep-hook`,
 `glob-hook`, `bash-route`, `edit-fix`, `write-guard`, `session-reset`,
-`update-check`, `exec`, `resolve`, `gain`, `status`, `stat-record`, `config`,
-`enable`, `disable`. Meta-commands are surfaced as plugin slash-commands
-(`/snip-gain`, `/snip-status`, `/snip-config`, …).
+`update-check`, `exec`, `resolve`, `gain`, `status`, `update`, `config`,
+`enable`, `disable`, `uninstall`, `stat-record`. Meta-commands are surfaced as a
+single plugin slash-command — `/snip <sub>` (e.g. `/snip status`, `/snip gain`,
+`/snip uninstall`), routed by `scripts/snip-cmd.sh` (most to the binary;
+`shell-setup`/`uninstall` to their git-bash scripts).
 
 ## Project layout (`src/`, layered — one public type per file)
 

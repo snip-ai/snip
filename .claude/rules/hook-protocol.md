@@ -64,8 +64,16 @@ commands — a hanging hook is the worst failure.
 - If optimization fails, return the **original unchanged**.
 - Fuzzy-match threshold **0.85** (+ length-ratio ≥ 0.80) — do not lower.
 
-## Install (plugin only)
+## Install / lifecycle (plugin seeds, binary owns)
 
 Hooks are registered **declaratively by the Claude Code plugin** (`plugins/snip/`)
 — there is no `settings.json` patching, no `init`, and no curl/PowerShell
-installer. Install and updates both flow through the plugin.
+installer. The plugin is a thin **bootstrap seed**: first run downloads the
+checksum-verified binary; from then on the **binary owns its lifecycle** — it
+self-updates on `SessionStart` (`update-check`), adds a removable `PATH` line on
+first install, and tears itself down via `snip uninstall` (which leaves a
+`.uninstalled` marker so `snip-run.sh` does not re-bootstrap before the plugin is
+removed). **All commands run through git bash**, on Windows too: a native `.exe`
+can't delete its own running file or spawn a detached shell that survives its
+exit, so `uninstall` removes the binary from the `snip-uninstall.sh` wrapper
+(which outlives the binary it runs), never PowerShell.

@@ -33,41 +33,45 @@ output unchanged — and snip **never writes to your source files**.
 
 On first run the plugin downloads the prebuilt binary for your platform from the
 matching GitHub release, verifies its checksum, and installs it under your OS data
-dir; hooks then run it by absolute path. Install **and** updates both flow through
-the plugin — there is no separate installer, and snip never patches your
-`settings.json`.
+dir; hooks then run it by absolute path. It also adds a clearly-marked, removable
+line to your shell rc so you can run `snip …` directly (undo with
+`/snip shell-setup remove`). Install **and** updates both flow through the plugin —
+there is no separate installer, and snip never patches your `settings.json`.
 
 ## Updates
 
 Two layers, two channels. The **binary** self-updates: on `SessionStart` snip
 checks the latest GitHub release in the background and fetches it (checksum-verified)
 when the running binary is older — independent of the plugin manifest version, which
-a third-party marketplace does not auto-refresh. `/snip-update` forces a check now.
-The **plugin wiring** (hooks, slash-commands, manifest) refreshes only when Claude
-Code re-pulls the marketplace; enable auto-update for the `snip` marketplace once
-(`/plugin` menu, or `"autoUpdate": true` on its `extraKnownMarketplaces` entry), or
-run `/plugin marketplace update snip` + `/plugin install snip@snip` on demand.
+a third-party marketplace does not auto-refresh. `/snip update` forces a check now.
+The **plugin wiring** (hooks, the `/snip` command, manifest) refreshes only when
+Claude Code re-pulls the marketplace;
+enable auto-update for the `snip` marketplace once (`/plugin` menu, or
+`"autoUpdate": true` on its `extraKnownMarketplaces` entry), or run
+`/plugin marketplace update snip` + `/plugin install snip@snip` on demand.
 
-## Slash-commands
+## Commands — one `/snip`
+
+Everything is a single slash-command, `/snip <sub>`:
 
 | Command | What it does |
 |---|---|
-| `/snip-gain` | Net token savings (input saved − induced re-read cost) |
-| `/snip-status` | Version, master switch, and per-optimizer state |
-| `/snip-config` | Get / set / list / reset configuration (dotted paths) |
-| `/snip-enable` · `/snip-disable` | Master switch on / off |
-| `/snip-update` | Check for the latest release and fetch the binary if newer |
-| `/snip-shell-setup` | **Opt-in:** put the binary on your `PATH` so `snip …` runs from a shell (`remove` to undo) |
+| `/snip status` | Version, master switch, and per-optimizer state |
+| `/snip gain` | Net token savings (input saved − induced re-read cost) |
+| `/snip config …` | Get / set / list / reset configuration (dotted paths) |
+| `/snip enable` · `/snip disable` | Master switch on / off |
+| `/snip update` | Check for the latest release and fetch the binary if newer |
+| `/snip shell-setup` | Add (or `remove`) the binary's `PATH` line |
+| `/snip uninstall` | Remove snip's data, binary, and `PATH` line (remove the plugin separately) |
 
-## Run snip from a shell (optional)
+## Run snip from a shell
 
-The same commands behind the slash-commands are subcommands of the installed
-binary, so you can also run `snip status`, `snip gain`, or `snip config list`
-straight from a shell. The binary just isn't on your `PATH` by default.
-`/snip-shell-setup` adds it (writing one clearly-marked line to your shell rc;
-`/snip-shell-setup remove` takes it back out). This is purely a convenience for
-reaching the **already-installed** binary — it adds no install or update channel,
-both of which still flow only through the plugin.
+snip adds its binary to your `PATH` on first install (one clearly-marked,
+removable line in your shell rc), so the same subcommands run straight from a
+shell — `snip status`, `snip gain`, `snip config list` — with **no model turn**.
+Undo the `PATH` line anytime with `/snip shell-setup remove` and re-add it with
+`/snip shell-setup`. This only reaches the **already-installed** binary; install
+and updates still flow only through the plugin.
 
 ## Platforms
 
