@@ -1,15 +1,14 @@
 #!/usr/bin/env bash
-# snip shell setup — OPT-IN: add the managed binary's dir to your shell PATH so
-# you can run `snip status`, `snip gain`, `snip config …` directly from a shell,
-# in addition to the /snip-* slash-commands.
+# snip shell setup — add the managed binary's dir to your shell PATH so you can
+# run `snip status`, `snip gain`, `snip config …` directly from a shell (no model
+# turn), alongside the `/snip <sub>` slash-command.
 #
-# This is NOT an installer and it does NOT run automatically. It is invoked only
-# when YOU type the /snip-shell-setup slash-command (deliberate consent). It does
-# exactly one thing: write a small, clearly-marked, removable block to your shell
-# rc file. Install AND updates still flow exclusively through the plugin — this
-# only reaches the binary the plugin already placed under the OS data dir. snip
-# writes nothing outside this one rc line; remove it anytime with
-# `/snip-shell-setup remove`.
+# Invoked two ways: automatically by snip-bootstrap.sh on the FIRST install (so
+# the binary is on PATH out of the box), and manually via `/snip shell-setup`
+# (or `/snip shell-setup remove`). It writes exactly one small, clearly-marked,
+# removable block to the rc file your interactive shell actually sources — nothing
+# else. Install and updates still flow only through the plugin; this only reaches
+# the binary already placed under the OS data dir.
 #
 # Usage: snip-shell-setup.sh [setup|remove]   (default: setup)
 set -u
@@ -50,17 +49,29 @@ case "$OS" in
   *)                    PATH_LINE='export PATH="${XDG_DATA_HOME:-$HOME/.local/share}/snip/bin:$PATH"' ;;
 esac
 
-# Pick the rc file for the user's shell. Scope is bash/zsh (the shells Claude
-# Code's Bash tool uses); other shells (fish, PowerShell) must be set up by hand.
+# Pick the rc file the user's interactive shell actually sources. Scope is
+# bash/zsh; other shells (fish, PowerShell) must be set up by hand. The `$SHELL`
+# basename carries a `.exe` on Windows git bash, so strip it before matching.
 detect_rc() {
-  case "$(basename "${SHELL:-bash}")" in
-    zsh) printf '%s' "$HOME/.zshrc" ;;
-    bash)
-      case "$OS" in
-        Darwin) printf '%s' "$HOME/.bash_profile" ;;
-        *)      printf '%s' "$HOME/.bashrc" ;;
-      esac ;;
-    *) printf '%s' "$HOME/.profile" ;;
+  sh="$(basename "${SHELL:-bash}")"; sh="${sh%.exe}"
+  case "$sh" in
+    zsh)  printf '%s' "$HOME/.zshrc"; return ;;
+    bash) : ;;  # handled by OS below
+    *)    printf '%s' "$HOME/.profile"; return ;;
+  esac
+  # bash: Linux terminals open NON-login shells (→ .bashrc). macOS Terminal and
+  # Windows git bash open LOGIN shells, which source the FIRST existing of
+  # .bash_profile / .bash_login / .profile — append to that one (so we never
+  # shadow it), creating .bash_profile when none exists. Writing .bashrc on git
+  # bash would only work via a warning-printing auto-created .bash_profile.
+  case "$OS" in
+    Linux) printf '%s' "$HOME/.bashrc" ;;
+    *)
+      if   [ -f "$HOME/.bash_profile" ]; then printf '%s' "$HOME/.bash_profile"
+      elif [ -f "$HOME/.bash_login" ];   then printf '%s' "$HOME/.bash_login"
+      elif [ -f "$HOME/.profile" ];      then printf '%s' "$HOME/.profile"
+      else                                    printf '%s' "$HOME/.bash_profile"
+      fi ;;
   esac
 }
 
@@ -69,7 +80,7 @@ RC="$(detect_rc)"
 do_setup() {
   if grep -Fq -- "$MARK_BEGIN" "$RC" 2>/dev/null; then
     printf 'snip: your PATH is already configured in %s (no change).\n' "$RC"
-    printf 'Run `snip status` in a new shell, or `/snip-shell-setup remove` to undo.\n'
+    printf 'Run `snip status` in a new shell, or `/snip shell-setup remove` to undo.\n'
     return 0
   fi
   {
@@ -84,7 +95,7 @@ do_setup() {
   printf 'snip: added the binary dir to your PATH via %s\n\n  %s\n\n' "$RC" "$PATH_LINE"
   printf 'Open a new shell (or run: source "%s") and `snip` works directly:\n' "$RC"
   printf '  snip status    snip gain    snip config list\n\n'
-  printf 'Undo anytime with:  /snip-shell-setup remove\n'
+  printf 'Undo anytime with:  /snip shell-setup remove\n'
   if [ ! -x "$BIN" ]; then
     printf '\nHeads-up: the binary is not installed yet at %s — it appears after the\n' "$BIN"
     printf 'plugin'\''s first SessionStart on a supported platform; the PATH line works then.\n'
