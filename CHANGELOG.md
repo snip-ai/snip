@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.5.1](https://github.com/snip-ai/snip/compare/v0.5.0...v0.5.1) (2026-06-25)
+
+
+### 🐛 Bug Fixes
+
+* **command:** don't wrap a command that redirects to a Git Bash magic device ([#27](https://github.com/snip-ai/snip/issues/27)) ([b5be1c6](https://github.com/snip-ai/snip/commit/b5be1c6d8da59b0c15877164d71caf70fc347510))
+* **command:** never wrap a pipe with an interactive/streaming stage upstream ([#25](https://github.com/snip-ai/snip/issues/25)) ([c696703](https://github.com/snip-ai/snip/commit/c69670375ed1ed0066190ee8354b88a833dbb005))
+* **command:** recognize git subcommands behind value-taking global options ([#29](https://github.com/snip-ai/snip/issues/29)) ([7df89f1](https://github.com/snip-ai/snip/commit/7df89f186fbb024977ddab489eb91e340835da47))
+* **fold:** don't fold a pure-placeholder template (misrepresents distinct values) ([#26](https://github.com/snip-ai/snip/issues/26)) ([1559ffe](https://github.com/snip-ai/snip/commit/1559ffec50f0b8fb6316d4a956023a61a5382ad5))
+* **overflow:** spill the middle a lossy Truncate elides (never discard output) ([#28](https://github.com/snip-ai/snip/issues/28)) ([078d4bd](https://github.com/snip-ai/snip/commit/078d4bda7214a032db4401ff5d419bbe37920ae3))
+* **test:** align phase-b-shell-setup to the current script; skip on win32 ([#24](https://github.com/snip-ai/snip/issues/24)) ([7b7c9fc](https://github.com/snip-ai/snip/commit/7b7c9fc635c71532b356f02e8ee952e4274fdace))
+
 ## [0.5.0](https://github.com/snip-ai/snip/compare/v0.4.1...v0.5.0) (2026-06-25)
 
 
