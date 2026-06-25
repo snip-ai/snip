@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.4.0](https://github.com/snip-ai/snip/compare/v0.3.0...v0.4.0) (2026-06-25)
+
+
+### 🚀 Features
+
+* add `snip uninstall` to tear down state, binary, and PATH line ([#14](https://github.com/snip-ai/snip/issues/14)) ([dc30af6](https://github.com/snip-ai/snip/commit/dc30af69088facc0af92e0a295755017d574a79d))
+* collapse to a single `/snip` command; rewrite the lifecycle doctrine ([#17](https://github.com/snip-ai/snip/issues/17)) ([75493fa](https://github.com/snip-ai/snip/commit/75493faad543111487f7a91d2407ff0f3e59a843))
+* single `/snip` entry, `update` alias, auto-PATH, git-bash uninstall ([#16](https://github.com/snip-ai/snip/issues/16)) ([a04c736](https://github.com/snip-ai/snip/commit/a04c736134676626b2859298e55db1f97d1911e1))
+
+
+### 🐛 Bug Fixes
+
+* spawn the self-update bootstrap from git bash, not the native binary ([#18](https://github.com/snip-ai/snip/issues/18)) ([753f7bb](https://github.com/snip-ai/snip/commit/753f7bb5a9f6226314af16d9ff3473760b381857))
+
+
+### 📚 Documentation
+
+* lead with the shell commands in both READMEs ([#19](https://github.com/snip-ai/snip/issues/19)) ([0c06827](https://github.com/snip-ai/snip/commit/0c06827ed17e47f54ddc635eb171592d19f919d6))
+
 ## [0.3.0](https://github.com/snip-ai/snip/compare/v0.2.0...v0.3.0) (2026-06-24)
 
 
