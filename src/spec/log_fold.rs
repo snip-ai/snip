@@ -11,7 +11,7 @@ use std::collections::{HashMap, HashSet};
 use serde::{Deserialize, Serialize};
 
 use super::fp_window::FpWindow;
-use super::log_mask::mask;
+use super::log_mask::{is_trivial_template, mask};
 
 /// Options for the `Fingerprint` transform.
 // A config flag struct: independent on/off toggles, not a state machine.
@@ -93,6 +93,13 @@ fn consecutive(records: Vec<String>, cfg: &FingerprintCfg) -> Vec<String> {
             continue;
         }
         let masked = mask(&line, cfg);
+        if is_trivial_template(&masked) {
+            // The masked-away tokens ARE this line's content (a `seq`, an id
+            // column); folding distinct values to one row would misrepresent them.
+            flush(&mut out, run.take(), cfg);
+            out.push(line);
+            continue;
+        }
         match &mut run {
             Some((m, _, count)) if *m == masked => *count += 1,
             _ => {
@@ -111,7 +118,10 @@ fn whole(records: Vec<String>, cfg: &FingerprintCfg) -> Vec<String> {
     let mut counts: HashMap<String, usize> = HashMap::new();
     for line in &records {
         if !is_protected(line, &protect_lower) {
-            *counts.entry(mask(line, cfg)).or_insert(0) += 1;
+            let masked = mask(line, cfg);
+            if !is_trivial_template(&masked) {
+                *counts.entry(masked).or_insert(0) += 1;
+            }
         }
     }
     let mut seen: HashSet<String> = HashSet::new();
@@ -122,6 +132,10 @@ fn whole(records: Vec<String>, cfg: &FingerprintCfg) -> Vec<String> {
             continue;
         }
         let masked = mask(&line, cfg);
+        if is_trivial_template(&masked) {
+            out.push(line); // pure-placeholder template → never folded (distinct data)
+            continue;
+        }
         if !seen.insert(masked.clone()) {
             continue; // a later occurrence — already emitted with its count
         }
