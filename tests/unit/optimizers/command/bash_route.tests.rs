@@ -22,11 +22,21 @@ fn backgrounded_commands_are_not_wrapped() {
 
 #[test]
 fn recognizes_our_own_exec_wrapper() {
-    // Arrange + Act + Assert: the anti-recursion guard
-    check!(is_wrapped("snip exec -- Zm9v"));
-    check!(is_wrapped(r#""/usr/local/bin/snip" exec -- Zm9v"#));
-    check!(!is_wrapped("git status"));
-    check!(!is_wrapped("snippet show")); // argv0 is `snippet`, not `snip`
+    // Arrange: force `SNIP_WRAPPED` unset so the assertions exercise the
+    // command-parse branch, not the ambient env-var branch. Otherwise running the
+    // suite UNDER snip's own `snip exec` wrapper (dogfooding) — which sets
+    // `SNIP_WRAPPED=1` for the wrapped child — makes `is_wrapped()` short-circuit to
+    // true for every input. The lock serializes the env mutation against sibling tests.
+    let _guard = crate::paths::ENV_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    temp_env::with_var_unset("SNIP_WRAPPED", || {
+        // Act + Assert: the anti-recursion guard
+        check!(is_wrapped("snip exec -- Zm9v"));
+        check!(is_wrapped(r#""/usr/local/bin/snip" exec -- Zm9v"#));
+        check!(!is_wrapped("git status"));
+        check!(!is_wrapped("snippet show")); // argv0 is `snippet`, not `snip`
+    });
 }
 
 #[test]
