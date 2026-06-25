@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# snip shell setup — add the managed binary's dir to your shell PATH so you can
-# run `snip status`, `snip gain`, `snip config …` directly from a shell (no model
-# turn), alongside the `/snip <sub>` slash-command.
+# snip shell setup — put the managed binary on your PATH so you can run
+# `snip status`, `snip gain`, `snip config …` directly (no model turn), alongside
+# the `/snip <sub>` slash-command.
 #
-# Invoked two ways: automatically by snip-bootstrap.sh on the FIRST install (so
-# the binary is on PATH out of the box), and manually via `/snip shell-setup`
-# (or `/snip shell-setup remove`). It writes exactly one small, clearly-marked,
-# removable block to the rc file your interactive shell actually sources — nothing
-# else. Install and updates still flow only through the plugin; this only reaches
-# the binary already placed under the OS data dir.
+# Invoked two ways: automatically by snip-bootstrap.sh on the FIRST install, and
+# manually via `/snip shell-setup` (or `/snip shell-setup remove`). It writes one
+# clearly-marked, removable block to the rc file(s) your interactive shell sources
+# and — on Windows — also adds the dir to your USER PATH env var, so non-interactive
+# shells (Claude Code's Bash tool), PowerShell, and cmd see it too. `remove` (and
+# `snip uninstall`) take all of that back out. Nothing else is touched.
 #
 # Usage: snip-shell-setup.sh [setup|remove]   (default: setup)
 set -u
@@ -20,9 +20,7 @@ MARK_BEGIN="# >>> snip shell setup >>>"
 MARK_END="# <<< snip shell setup <<<"
 
 # Resolve the data dir the SAME way as snip-run.sh::snip_home() and
-# src/paths.rs::data_dir(). Kept as a local copy (not a sourced helper) on
-# purpose: snip-run.sh is the per-tool-call hot path and must avoid an extra
-# file read. KEEP THESE THREE IN SYNC if the data-dir mapping ever changes.
+# src/paths.rs::data_dir(). KEEP THESE THREE IN SYNC if the mapping ever changes.
 snip_home() {
   if [ -n "${SNIP_HOME:-}" ]; then printf '%s' "$SNIP_HOME"; return; fi
   case "$OS" in
@@ -32,98 +30,91 @@ snip_home() {
   esac
 }
 
-case "$OS" in
-  MINGW*|MSYS*|CYGWIN*) BIN_NAME="snip.exe" ;;
-  *)                    BIN_NAME="snip" ;;
-esac
-BIN_DIR="$(snip_home)/bin"
-BIN="$BIN_DIR/$BIN_NAME"
+is_windows() { case "$OS" in MINGW*|MSYS*|CYGWIN*) return 0 ;; *) return 1 ;; esac; }
 
-# The PATH line written to the rc. Variable-relative (re-resolved every shell) so
-# it survives a home/profile move and always targets the OS-default store. On
-# Git Bash the data dir is a Windows path whose drive colon would break PATH
-# splitting, so route it through cygpath to a POSIX path.
+# The PATH line written to the rc. Variable-relative so it survives a profile move.
 case "$OS" in
   Darwin)               PATH_LINE='export PATH="$HOME/Library/Application Support/snip/bin:$PATH"' ;;
   MINGW*|MSYS*|CYGWIN*) PATH_LINE='export PATH="$(cygpath -u "${APPDATA:-$HOME/AppData/Roaming}")/snip/bin:$PATH"' ;;
   *)                    PATH_LINE='export PATH="${XDG_DATA_HOME:-$HOME/.local/share}/snip/bin:$PATH"' ;;
 esac
 
-# Pick the rc file the user's interactive shell actually sources. Scope is
-# bash/zsh; other shells (fish, PowerShell) must be set up by hand. The `$SHELL`
-# basename carries a `.exe` on Windows git bash, so strip it before matching.
-detect_rc() {
-  sh="$(basename "${SHELL:-bash}")"; sh="${sh%.exe}"
-  case "$sh" in
-    zsh)  printf '%s' "$HOME/.zshrc"; return ;;
-    bash) : ;;  # handled by OS below
-    *)    printf '%s' "$HOME/.profile"; return ;;
-  esac
-  # bash: Linux terminals open NON-login shells (→ .bashrc). macOS Terminal and
-  # Windows git bash open LOGIN shells, which source the FIRST existing of
-  # .bash_profile / .bash_login / .profile — append to that one (so we never
-  # shadow it), creating .bash_profile when none exists. Writing .bashrc on git
-  # bash would only work via a warning-printing auto-created .bash_profile.
-  case "$OS" in
-    Linux) printf '%s' "$HOME/.bashrc" ;;
-    *)
-      if   [ -f "$HOME/.bash_profile" ]; then printf '%s' "$HOME/.bash_profile"
-      elif [ -f "$HOME/.bash_login" ];   then printf '%s' "$HOME/.bash_login"
-      elif [ -f "$HOME/.profile" ];      then printf '%s' "$HOME/.profile"
-      else                                    printf '%s' "$HOME/.bash_profile"
-      fi ;;
-  esac
+# --- marked-block helpers (idempotent) --------------------------------------
+has_block()   { grep -Fq -- "$MARK_BEGIN" "$1" 2>/dev/null; }
+write_block() { # $1=file $2=content
+  has_block "$1" && return 0
+  { printf '\n%s\n' "$MARK_BEGIN"; printf '%s\n' "$2"; printf '%s\n' "$MARK_END"; } >> "$1"
+}
+strip_block() { # $1=file
+  has_block "$1" || return 0
+  tmp="$(mktemp 2>/dev/null || printf '%s' "$1.snip.tmp.$$")"
+  awk -v b="$MARK_BEGIN" -v e="$MARK_END" \
+    '$0==b{inblk=1;next} $0==e{inblk=0;next} inblk!=1{print}' "$1" >"$tmp" \
+    && mv -f "$tmp" "$1" || rm -f "$tmp" 2>/dev/null
 }
 
-RC="$(detect_rc)"
+# Put the PATH line where the user's interactive shell sources it. bash uses
+# .bashrc (sourced by NON-login interactive shells — IDE terminals) plus a
+# .bash_profile that sources .bashrc (so LOGIN shells — macOS Terminal, Windows
+# Git Bash — get it too, with no git-for-windows "incorrect setup" warning).
+setup_rc() {
+  sh="$(basename "${SHELL:-bash}")"; sh="${sh%.exe}"
+  case "$sh" in
+    zsh)  write_block "$HOME/.zshrc" "$PATH_LINE"; printf '%s' "$HOME/.zshrc"; return ;;
+    bash) : ;;
+    *)    write_block "$HOME/.profile" "$PATH_LINE"; printf '%s' "$HOME/.profile"; return ;;
+  esac
+  write_block "$HOME/.bashrc" "$PATH_LINE"
+  if ! { [ -f "$HOME/.bash_profile" ] && grep -q '\.bashrc' "$HOME/.bash_profile" 2>/dev/null; } \
+     && ! { [ -f "$HOME/.bash_login" ] && grep -q '\.bashrc' "$HOME/.bash_login" 2>/dev/null; }; then
+    write_block "$HOME/.bash_profile" '[ -r ~/.bashrc ] && . ~/.bashrc'
+  fi
+  printf '%s' "$HOME/.bashrc"
+}
 
+remove_rc() {
+  for f in .bashrc .bash_profile .bash_login .zshrc .profile; do strip_block "$HOME/$f"; done
+}
+
+# --- Windows USER PATH (covers non-interactive shells, PowerShell, cmd) ------
+# The dir is passed via an env var so the PowerShell command needs no interpolation.
+win_path_add() {
+  SNIP_BIN_WIN="$(cygpath -w "$(snip_home)/bin")" powershell -NoProfile -NonInteractive -Command '
+    $d = $env:SNIP_BIN_WIN; $p = [Environment]::GetEnvironmentVariable("PATH","User"); if (-not $p) { $p = "" }
+    if (($p -split ";") -notcontains $d) {
+      [Environment]::SetEnvironmentVariable("PATH", (($p.TrimEnd(";") + ";" + $d).TrimStart(";")), "User")
+    }' >/dev/null 2>&1
+}
+win_path_remove() {
+  SNIP_BIN_WIN="$(cygpath -w "$(snip_home)/bin")" powershell -NoProfile -NonInteractive -Command '
+    $d = $env:SNIP_BIN_WIN; $p = [Environment]::GetEnvironmentVariable("PATH","User")
+    if ($p) {
+      $new = (($p -split ";") | Where-Object { $_ -ne $d -and $_ -ne "" }) -join ";"
+      [Environment]::SetEnvironmentVariable("PATH", $new, "User")
+    }' >/dev/null 2>&1
+}
+
+# --- actions ----------------------------------------------------------------
 do_setup() {
-  if grep -Fq -- "$MARK_BEGIN" "$RC" 2>/dev/null; then
-    printf 'snip: your PATH is already configured in %s (no change).\n' "$RC"
-    printf 'Run `snip status` in a new shell, or `/snip shell-setup remove` to undo.\n'
-    return 0
+  rc="$(setup_rc)"
+  printf 'snip: ensured the binary dir is on your shell PATH (via %s + a login chain).\n' "$rc"
+  if is_windows && win_path_add; then
+    printf 'snip: and on your Windows USER PATH (covers non-interactive shells,\n'
+    printf '      PowerShell, and cmd). New shells/sessions pick it up.\n'
   fi
-  {
-    printf '\n%s\n' "$MARK_BEGIN"
-    printf '%s\n' "$PATH_LINE"
-    printf '%s\n' "$MARK_END"
-  } >> "$RC" || {
-    printf 'snip: could not write %s — add this line to your shell rc by hand:\n\n  %s\n' "$RC" "$PATH_LINE"
-    return 1
-  }
-
-  printf 'snip: added the binary dir to your PATH via %s\n\n  %s\n\n' "$RC" "$PATH_LINE"
-  printf 'Open a new shell (or run: source "%s") and `snip` works directly:\n' "$RC"
-  printf '  snip status    snip gain    snip config list\n\n'
-  printf 'Undo anytime with:  /snip shell-setup remove\n'
-  if [ ! -x "$BIN" ]; then
-    printf '\nHeads-up: the binary is not installed yet at %s — it appears after the\n' "$BIN"
-    printf 'plugin'\''s first SessionStart on a supported platform; the PATH line works then.\n'
+  printf '\nOpen a NEW shell, then `snip` runs directly:  snip status   snip gain   snip config list\n'
+  printf 'Undo anytime with:  /snip shell-setup remove  (or `snip uninstall`).\n'
+  if [ ! -x "$(snip_home)/bin/snip" ] && [ ! -x "$(snip_home)/bin/snip.exe" ]; then
+    printf '\nHeads-up: the binary is not installed yet — it appears after the plugin'\''s\n'
+    printf 'first SessionStart on a supported platform; the PATH entries work then.\n'
   fi
-  if [ -n "${SNIP_HOME:-}" ]; then
-    printf '\nNote: SNIP_HOME is set in this shell, but the PATH line targets the OS-default\n'
-    printf 'store, not $SNIP_HOME. Leave SNIP_HOME unset for the line to match your data.\n'
-  fi
-  printf '\nInstall & updates still flow only through the plugin; this just reaches the\n'
-  printf 'already-installed binary. snip wrote only the rc line above, nothing else.\n'
 }
 
 do_remove() {
-  if ! grep -Fq -- "$MARK_BEGIN" "$RC" 2>/dev/null; then
-    printf 'snip: no snip PATH line found in %s (nothing to remove).\n' "$RC"
-    return 0
-  fi
-  tmp="$(mktemp 2>/dev/null || printf '%s' "$RC.snip.tmp.$$")"
-  awk -v b="$MARK_BEGIN" -v e="$MARK_END" '
-    $0==b { inblk=1; next }
-    $0==e { inblk=0; next }
-    inblk!=1 { print }
-  ' "$RC" > "$tmp" && mv -f "$tmp" "$RC" || {
-    rm -f "$tmp" 2>/dev/null
-    printf 'snip: could not rewrite %s — remove the block between the snip markers by hand.\n' "$RC"
-    return 1
-  }
-  printf 'snip: removed the snip PATH line from %s.\n' "$RC"
+  remove_rc
+  extra=""
+  if is_windows; then win_path_remove; extra=" + Windows USER PATH"; fi
+  printf 'snip: removed the snip PATH entries (rc files%s).\n' "$extra"
   printf 'Open a new shell for the change to take effect.\n'
 }
 
