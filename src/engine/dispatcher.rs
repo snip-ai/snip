@@ -121,21 +121,38 @@ impl Dispatcher {
             header,
             body,
             original_tokens,
+            lossy,
             ..
         } = outcome
         else {
             return outcome;
+        };
+        // A lossy rewrite (a `Truncate` elided the middle) would otherwise discard
+        // those records: spill the full original and breadcrumb the view so they
+        // stay recoverable, then apply the budget cap on top.
+        let body = if lossy {
+            Spill::keep_recoverable(&body, ctx.output.unwrap_or(&body), ctx.session_id, name)
+        } else {
+            body
         };
         let body = Spill::apply(body, ctx.session_id, name, ctx.cfg.overflow_for(name));
         // The model pays for the injected header (guidance/breadcrumb) plus the body,
         // so the recorded NET must count both — body-only would overstate the gain by
         // the per-rewrite header tax.
         let new_tokens = estimate_tokens(&header) + estimate_tokens(&body);
+        // The breadcrumb a lossy spill appends costs a line; for a near-threshold short
+        // output that can erase the saving, so re-apply the no-inflation guard and keep
+        // the original verbatim (a `PassThrough` — nothing dropped) when it does.
+        if lossy && new_tokens >= original_tokens {
+            return Outcome::PassThrough;
+        }
         Outcome::Rewrite {
             header,
             body,
             original_tokens,
             new_tokens,
+            // The spill above already made any dropped content recoverable.
+            lossy: false,
         }
     }
 }

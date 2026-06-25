@@ -6,7 +6,7 @@
 //! [`OptimizerSpec::validate`].
 
 use crate::domain::{HEADER_PREFIX, HookCtx, Optimizer, Outcome, Surface};
-use crate::spec::OptimizerSpec;
+use crate::spec::{OptimizerSpec, Transform};
 use crate::tokens::estimate_tokens;
 
 /// Adapter that runs an [`OptimizerSpec`] as an [`Optimizer`] on an output surface.
@@ -62,7 +62,16 @@ impl SpecOptimizer {
         let original_lines = output.lines().count();
         let mut records: Vec<String> = output.lines().map(str::to_owned).collect();
         let masked_any = secret_safe && crate::optimizers::redact::mask_records(&mut records);
+        let mut lossy = false;
         for transform in &self.spec.transforms {
+            // A `Truncate` that fires drops the middle records irrecoverably (the
+            // marker only counts them). Flag it — using the same threshold as
+            // `truncate` itself — so the caller spills the full original.
+            if let Transform::Truncate { head, tail } = transform
+                && records.len() > head + tail + 1
+            {
+                lossy = true;
+            }
             records = transform.apply(records);
         }
         let trailing = if output.ends_with('\n') { "\n" } else { "" };
@@ -88,6 +97,7 @@ impl SpecOptimizer {
             body,
             original_tokens,
             new_tokens,
+            lossy,
         }
     }
 }
