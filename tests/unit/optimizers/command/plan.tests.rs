@@ -107,6 +107,29 @@ fn bails_on_blocking_command_or_unsafe_syntax() {
 }
 
 #[test]
+fn bails_for_capture_flags_msys_magic_device_redirects() {
+    // Arrange + Act + Assert: /dev/std* and /dev/fd/N can't be reopened over the
+    // capture pipe under MSYS, so they're unsafe to wrap on Windows only; /dev/null
+    // and a plain command are always fine to wrap.
+    check!(super::bails_for_capture("echo x >/dev/stderr") == cfg!(windows));
+    check!(super::bails_for_capture("echo x 1>/dev/fd/2") == cfg!(windows));
+    check!(!super::bails_for_capture("echo x >/dev/null"));
+    check!(!super::bails_for_capture("echo hello"));
+}
+
+#[cfg(windows)]
+#[test]
+fn bails_on_a_magic_device_redirect_on_windows() {
+    // Arrange: output written to /dev/stderr is lost over the capture pipe under
+    // MSYS, so the whole line must run verbatim instead of being wrapped.
+    let specs = CommandSpecs::load(&Config::default());
+
+    // Act + Assert
+    check!(Plan::build("echo progress >/dev/stderr; echo data", &specs).is_none());
+    check!(!Plan::wrappable("echo progress >/dev/stderr | sort"));
+}
+
+#[test]
 fn bails_when_a_blocking_command_is_upstream_in_a_pipe() {
     // Arrange: the interactive/streaming command is NOT the terminal stage — older
     // code only checked the terminal stage and would wrap (then hang under capture).

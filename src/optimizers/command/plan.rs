@@ -27,6 +27,9 @@ impl Plan {
         if any_stage_blocks(cmd, &segments) {
             return None; // never wrap interactive/streaming/non-POSIX (any pipe stage)
         }
+        if bails_for_capture(cmd) {
+            return None; // a /dev/std* redirect is lost over the capture pipe (MSYS)
+        }
         let units = Unit::build(&segments);
         let mut wrapped = String::new();
         let mut recognized = Vec::new();
@@ -98,6 +101,9 @@ impl Plan {
         if any_stage_blocks(cmd, &segments) {
             return false;
         }
+        if bails_for_capture(cmd) {
+            return false;
+        }
         Unit::build(&segments).iter().any(|u| !u.is_blank(cmd))
     }
 }
@@ -113,6 +119,18 @@ fn any_stage_blocks(cmd: &str, segments: &[Segment]) -> bool {
     segments.iter().any(|seg| {
         recognition::parse(seg.text(cmd)).is_some_and(|(argv0, _)| recognition::is_blocking(&argv0))
     })
+}
+
+/// Whether the command redirects to a Git Bash / MSYS magic device path —
+/// `/dev/stdout`, `/dev/stderr`, or `/dev/fd/N`.
+///
+/// Under MSYS those paths cannot be reopened over `snip exec`'s anonymous capture
+/// pipe (`capture.rs` pipes the child's stdout), so output written to them is lost
+/// and replaced with a `No such file or directory` open error. Bail there and run
+/// the command verbatim. Only Windows is affected — other platforms resolve these
+/// paths correctly over a pipe — so the check is a compile-time no-op elsewhere.
+fn bails_for_capture(cmd: &str) -> bool {
+    cfg!(windows) && (cmd.contains("/dev/std") || cmd.contains("/dev/fd/"))
 }
 
 /// The absolute byte offset at which to splice a recognized unit's `inject_flags`,
