@@ -66,14 +66,16 @@ fn passthrough_is_byte_identical_to_raw_sh() {
 #[test]
 #[serial]
 fn recognized_output_is_compacted_and_exit_code_preserved() {
-    // Arrange: a directory of many files so `ls` overflows the truncate cap
+    // Arrange: a directory of many files so `ls` overflows the truncate cap by a
+    // wide margin — enough that the truncated view still beats the original after the
+    // recoverability breadcrumb a lossy `Truncate` appends (it spills the elided rows).
     if !sh_available() {
         return;
     }
     let dir = std::env::temp_dir().join(format!("snip-cmd-test-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
-    for i in 0..150 {
+    for i in 0..400 {
         std::fs::write(dir.join(format!("f{i:03}.rs")), "").unwrap();
     }
     let cmd = format!("ls '{}'", dir.to_string_lossy().replace('\\', "/"));
@@ -90,6 +92,53 @@ fn recognized_output_is_compacted_and_exit_code_preserved() {
 
     // Cleanup
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+#[serial]
+fn lossy_truncate_keeps_the_elided_middle_recoverable() {
+    // Arrange: a grep over bash output with far more matches than the truncate cap
+    // (head 80 + tail 20) can keep, so the middle is elided. SNIP_HOME + SNIP_SESSION
+    // scope the spill so we can assert the dropped matches are still on disk.
+    if !sh_available() {
+        return;
+    }
+    let home = std::env::temp_dir().join(format!("snip-lossy-spill-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&home);
+    let cmd = "seq 20000 | grep 5";
+
+    temp_env::with_vars(
+        [
+            ("SNIP_HOME", Some(home.to_string_lossy().into_owned())),
+            ("SNIP_ENABLED", Some("1".to_owned())),
+            ("SNIP_SESSION", Some("sess-trunc".to_owned())),
+        ],
+        || {
+            // Act
+            let (out, code) = run_capture(cmd).expect("sh runs");
+
+            // Assert: the view is the truncated grep + a recovery breadcrumb, the
+            // command still succeeded, and the spill holds the elided middle match
+            // ("10005") that the shown view dropped.
+            let text = String::from_utf8_lossy(&out);
+            check!(text.contains("[snip: grep |"));
+            check!(text.contains("lines recoverable"));
+            check!(!text.contains("10005"));
+            check!(code == 0);
+            let spill_dir = home.join("session-cache").join("sess-trunc");
+            let entry = std::fs::read_dir(&spill_dir)
+                .expect("spill dir exists")
+                .filter_map(Result::ok)
+                .find(|e| e.file_name().to_string_lossy().starts_with("spill-grep-"));
+            assert2::assert!(let Some(entry) = entry);
+            let recovered = std::fs::read_to_string(entry.path()).unwrap();
+            check!(recovered.lines().count() > text.lines().count());
+            check!(recovered.contains("10005"));
+        },
+    );
+
+    // Cleanup
+    let _ = std::fs::remove_dir_all(&home);
 }
 
 #[test]

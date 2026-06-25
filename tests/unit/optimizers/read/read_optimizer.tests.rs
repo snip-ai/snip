@@ -42,7 +42,7 @@ fn compacts_rust_read() {
     assert2::assert!(let Ok(outcome) = ReadOptimizer.apply(&ctx(Surface::Read, &input, Some(src.as_str()), &cfg)));
 
     // Assert
-    assert2::assert!(let Outcome::Rewrite { header, body, original_tokens, new_tokens } = outcome);
+    assert2::assert!(let Outcome::Rewrite { header, body, original_tokens, new_tokens, .. } = outcome);
     check!(header.contains("[snip: read | rust"));
     check!(header.contains("resolve <file>")); // recovery guidance present (with a runnable path)
     check!(!body.contains("EXPLANATORY"));

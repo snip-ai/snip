@@ -4,7 +4,7 @@
 //! (in marker order). Built identically by `bash-route` (to decide whether to
 //! rewrite) and `exec` (to run + slice). `None` bails — the line runs verbatim.
 
-use super::{CommandSpecs, Segmenter, Unit, recognition};
+use super::{CommandSpecs, Segment, Segmenter, Unit, recognition};
 use crate::spec::OptimizerSpec;
 
 /// A sentinel-wrapped execution plan for one command line.
@@ -24,8 +24,11 @@ impl Plan {
     #[must_use]
     pub fn build(cmd: &str, specs: &CommandSpecs) -> Option<Self> {
         let segments = Segmenter::split(cmd)?;
+        if any_stage_blocks(cmd, &segments) {
+            return None; // never wrap interactive/streaming/non-POSIX (any pipe stage)
+        }
         if bails_for_capture(cmd) {
-            return None;
+            return None; // a /dev/std* redirect is lost over the capture pipe (MSYS)
         }
         let units = Unit::build(&segments);
         let mut wrapped = String::new();
@@ -36,10 +39,9 @@ impl Plan {
                 continue;
             }
             let matched = match recognition::parse(unit.last_text(cmd)) {
+                // Blocking stages are rejected above (every stage, not just the
+                // terminal one), so here we only gate on redirects + spec match.
                 Some((argv0, sub)) => {
-                    if recognition::is_blocking(&argv0) {
-                        return None; // never wrap interactive/streaming/non-POSIX
-                    }
                     if unit.redirects_stdout(cmd) {
                         None
                     } else {
@@ -96,19 +98,27 @@ impl Plan {
         let Some(segments) = Segmenter::split(cmd) else {
             return false;
         };
+        if any_stage_blocks(cmd, &segments) {
+            return false;
+        }
         if bails_for_capture(cmd) {
             return false;
         }
-        let units = Unit::build(&segments);
-        let non_blank: Vec<&Unit> = units.iter().filter(|u| !u.is_blank(cmd)).collect();
-        if non_blank.is_empty() {
-            return false;
-        }
-        !non_blank.iter().any(|u| {
-            recognition::parse(u.last_text(cmd))
-                .is_some_and(|(argv0, _)| recognition::is_blocking(&argv0))
-        })
+        Unit::build(&segments).iter().any(|u| !u.is_blank(cmd))
     }
+}
+
+/// Whether any pipe stage of `segments` is an interactive/streaming/non-POSIX
+/// command — unsafe to wrap in ANY position, not just a unit's terminal stage.
+///
+/// [`recognition::is_blocking`] is tested on every segment (each `|`/`;`/`&&`/`||`
+/// stage), so `tail -f log | grep x`, `watch ls | cat`, and `vim f | cat` bail
+/// instead of being wrapped and hung under capture (or breaking the interactive
+/// program). The original check only inspected each unit's terminal stage.
+fn any_stage_blocks(cmd: &str, segments: &[Segment]) -> bool {
+    segments.iter().any(|seg| {
+        recognition::parse(seg.text(cmd)).is_some_and(|(argv0, _)| recognition::is_blocking(&argv0))
+    })
 }
 
 /// Whether the command redirects to a Git Bash / MSYS magic device path —

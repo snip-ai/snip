@@ -125,3 +125,43 @@ fn masks_a_long_hex_token() {
     // Assert: both collapse via the hex placeholder
     check!(out == lines(&["hash cafef00d ok (×2)"]));
 }
+
+#[test]
+fn does_not_fold_a_pure_numeric_template() {
+    // Arrange: distinct numbers (a `seq`) mask to the trivial template `<n>`. Folding
+    // them to `1 (×3)` would misrepresent three distinct values as a repeat.
+    let records = lines(&["1", "2", "3"]);
+
+    // Act
+    let out = fingerprint(records.clone(), &FingerprintCfg::default());
+
+    // Assert: left verbatim, not collapsed
+    check!(out == records);
+}
+
+#[test]
+fn does_not_fold_a_pure_id_column_in_the_whole_window() {
+    // Arrange: a column of distinct hashes masks to the trivial template `<x>`; the
+    // whole-window must not collapse them into one false `(×N)` row either.
+    let cfg: FingerprintCfg = serde_json::from_str(r#"{"window":"whole"}"#).unwrap();
+    let records = lines(&["cafef00d", "deadbeef", "0badf00d"]);
+
+    // Act
+    let out = fingerprint(records.clone(), &cfg);
+
+    // Assert
+    check!(out == records);
+}
+
+#[test]
+fn still_folds_a_template_with_literal_content_around_numbers() {
+    // Arrange: numbers embedded in a line with real words still fold — the literal
+    // text makes the template non-trivial, so the numbers are incidental noise.
+    let records = lines(&["worker 1 idle", "worker 2 idle", "worker 3 idle"]);
+
+    // Act
+    let out = fingerprint(records, &FingerprintCfg::default());
+
+    // Assert
+    check!(out == lines(&["worker 1 idle (×3)"]));
+}
