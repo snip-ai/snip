@@ -107,6 +107,30 @@ fn bails_on_blocking_command_or_unsafe_syntax() {
 }
 
 #[test]
+fn bails_when_a_blocking_command_is_upstream_in_a_pipe() {
+    // Arrange: the interactive/streaming command is NOT the terminal stage — older
+    // code only checked the terminal stage and would wrap (then hang under capture).
+    let specs = CommandSpecs::load(&Config::default());
+
+    // Act + Assert: every stage is checked now, so an upstream blocker bails
+    check!(Plan::build("tail -f log | grep err", &specs).is_none());
+    check!(Plan::build("vim file | cat", &specs).is_none());
+    check!(Plan::build("watch ls | head", &specs).is_none());
+    check!(!Plan::wrappable("tail -f log | grep err"));
+    check!(!Plan::wrappable("less big.txt | head"));
+}
+
+#[test]
+fn wraps_a_pipe_of_only_non_blocking_stages() {
+    // Arrange: no stage is interactive/streaming, so the pipe is safe to wrap
+    let specs = CommandSpecs::load(&Config::default());
+
+    // Act + Assert
+    check!(Plan::wrappable("cat file | grep x | sort"));
+    assert2::assert!(let Some(_) = Plan::build("cat file | grep x", &specs));
+}
+
+#[test]
 fn redirected_recognized_command_is_left_verbatim() {
     // Arrange: stdout goes to a file → nothing visible to optimize
     let specs = CommandSpecs::load(&Config::default());
