@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/snip-ai/snip/compare/v0.4.1...v0.5.0) (2026-06-25)
+
+
+### 🚀 Features
+
+* put snip on PATH everywhere on Windows (shell rc + USER PATH) ([#22](https://github.com/snip-ai/snip/issues/22)) ([5680dbf](https://github.com/snip-ai/snip/commit/5680dbf6e60619b92306b22c63b385560cb72b83))
+
 ## [0.4.1](https://github.com/snip-ai/snip/compare/v0.4.0...v0.4.1) (2026-06-25)
 
 
