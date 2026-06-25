@@ -4,14 +4,45 @@
 /// Parse a segment into `(argv0 basename, first sub-command word)`.
 ///
 /// Skips leading `NAME=val` environment assignments and is quote-aware enough to
-/// find argv0; returns `None` for an empty/all-assignment segment.
+/// find argv0; `None` for an empty/all-assignment segment. Sub-command detection
+/// (incl. `git`'s value-taking global options) lives in [`locate`].
 #[must_use]
 pub fn parse(text: &str) -> Option<(String, Option<String>)> {
-    let words = words(text);
-    let mut iter = words.iter().skip_while(|w| is_assignment(w));
-    let argv0 = basename(iter.next()?);
-    let sub = iter.find(|w| !w.starts_with('-')).cloned();
-    Some((argv0, sub))
+    let owned = words(text);
+    let words: Vec<&str> = owned.iter().map(String::as_str).collect();
+    let (argv0, sub) = locate(&words)?;
+    Some((basename(words[argv0]), sub.map(|i| words[i].to_owned())))
+}
+
+/// `git` global options that consume the **following** token as their value, so the
+/// real sub-command is the word after it. Only these two-token forms mask the
+/// sub-command; single-token `--flag=value` is one flag word and needs no entry.
+const GIT_VALUE_OPTS: &[&str] = &[
+    "-C",
+    "-c",
+    "--git-dir",
+    "--work-tree",
+    "--namespace",
+    "--exec-path",
+];
+
+/// `(argv0 index, sub-command index)` into `words`: the first non-assignment word
+/// (argv0), then the first non-flag word after it — skipping, for `git`, a
+/// [`GIT_VALUE_OPTS`] value (so `git -C /path diff` ⇒ `diff`, not `/path`).
+fn locate(words: &[&str]) -> Option<(usize, Option<usize>)> {
+    let argv0 = words.iter().position(|w| !is_assignment(w))?;
+    let is_git = basename(words[argv0]) == "git";
+    let mut i = argv0 + 1;
+    while let Some(&w) = words.get(i) {
+        if !w.starts_with('-') {
+            return Some((argv0, Some(i)));
+        }
+        if is_git && GIT_VALUE_OPTS.contains(&w) {
+            i += 1; // also skip the option's value token
+        }
+        i += 1;
+    }
+    Some((argv0, None))
 }
 
 /// Whether `argv0` is interactive, streaming, or a non-POSIX shell — any of
@@ -113,22 +144,18 @@ fn basename(argv0: &str) -> String {
 /// *before* positional arguments (e.g. `git diff --no-color <pathspec>`,
 /// `cargo test --message-format=json -- <args>`), so flags appended at the line's
 /// end break the command. `None` when no argv0 can be located (the caller then
-/// injects nothing rather than risk a broken command).
+/// injects nothing rather than risk a broken command). Shares [`locate`] with
+/// [`parse`], so `git -C /path diff` splices after `diff`, not `/path`.
 #[must_use]
 pub fn inject_offset(text: &str, with_sub: bool) -> Option<usize> {
     let ranges = word_ranges(text);
-    let mut iter = ranges
-        .into_iter()
-        .skip_while(|&(s, e)| is_assignment(&text[s..e]));
-    let argv0 = iter.next()?;
+    let words: Vec<&str> = ranges.iter().map(|&(s, e)| &text[s..e]).collect();
+    let (argv0, sub) = locate(&words)?;
     if !with_sub {
-        return Some(argv0.1);
+        return Some(ranges[argv0].1);
     }
-    // The sub-command is the first non-flag word after argv0 (mirrors `parse`).
-    Some(
-        iter.find(|&(s, e)| !text[s..e].starts_with('-'))
-            .map_or(argv0.1, |(_, e)| e),
-    )
+    // Past the sub-command (per `locate`); fall back to just-past-argv0 if none.
+    Some(sub.map_or(ranges[argv0].1, |i| ranges[i].1))
 }
 
 /// Byte ranges `[start, end)` of each whitespace-separated word in `text`, with
