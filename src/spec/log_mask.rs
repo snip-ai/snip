@@ -79,6 +79,21 @@ fn is_uuid_at(bytes: &[u8], i: usize) -> bool {
     })
 }
 
+/// Whether a masked template is only placeholders (`<n>`/`<x>`/`<uuid>`),
+/// whitespace and punctuation — carrying no literal word.
+///
+/// For such a line the masked-away tokens (a number, hash, or id) ARE its content,
+/// so collapsing distinct values to one `sample (×N)` row would misrepresent them
+/// as repeats (e.g. `seq 1 150` → `1 (×150)`, an id/hash column). [`super::log_fold`]
+/// leaves these lines unfolded; a genuinely repeated value simply shows verbatim.
+pub(crate) fn is_trivial_template(masked: &str) -> bool {
+    let literal = masked
+        .replace("<uuid>", " ")
+        .replace("<n>", " ")
+        .replace("<x>", " ");
+    !literal.bytes().any(|b| b.is_ascii_alphanumeric())
+}
+
 /// Classify one alphanumeric run into a placeholder, or keep it verbatim.
 fn classify(run: &str, cfg: &FingerprintCfg) -> String {
     let all_digits = run.bytes().all(|b| b.is_ascii_digit());
