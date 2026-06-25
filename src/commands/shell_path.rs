@@ -33,10 +33,16 @@ pub(crate) fn strip_path_from_rcs(home: Option<&Path>) -> Vec<PathBuf> {
 
 /// Candidate shell rc files that may hold the snip PATH block.
 fn rc_candidates(home: &Path) -> Vec<PathBuf> {
-    [".bashrc", ".bash_profile", ".zshrc", ".profile"]
-        .iter()
-        .map(|f| home.join(f))
-        .collect()
+    [
+        ".bashrc",
+        ".bash_profile",
+        ".bash_login",
+        ".zshrc",
+        ".profile",
+    ]
+    .iter()
+    .map(|f| home.join(f))
+    .collect()
 }
 
 /// Drop the `MARK_BEGIN..=MARK_END` block (inclusive). Returns `None` when no

@@ -1,6 +1,6 @@
 //! `snip config` (get/set/list/reset) and the enable/disable master-switch backends.
 //!
-//! These back the `/snip-config`, `/snip-enable`, and `/snip-disable` slash-commands.
+//! These back the `/snip config`, `/snip enable`, and `/snip disable` slash-commands.
 //! Settings round-trip the on-disk config file (not the env-overlaid view) so a
 //! `set` never accidentally bakes in a `SNIP_*` override.
 
