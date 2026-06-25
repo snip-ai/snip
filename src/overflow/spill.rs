@@ -53,14 +53,15 @@ impl Spill {
     }
 
     /// Persist `original` to a recoverable spill file and append a breadcrumb to
-    /// `view`, so a *lossy* fold never discards output: the folded view is shown,
-    /// the full original stays one `Read` away.
+    /// `view`, so a *lossy* rewrite never discards output: the compacted view is
+    /// shown, the full original stays one `Read` away.
     ///
     /// Unlike [`Self::apply`] (a budget-gated overflow cap that spills the
     /// already-optimized body), this is for transforms whose view can lose distinct
-    /// content — chiefly the autodetect log fingerprinter, which collapses
-    /// masked-equal lines. Falls back to `original` verbatim if the spill cannot be
-    /// written: never a lossy view with no path back to the dropped lines.
+    /// content — the autodetect log fingerprinter (which collapses masked-equal
+    /// lines) and the `Truncate` transform (which elides the middle records). Falls
+    /// back to `original` verbatim if the spill cannot be written: never a lossy view
+    /// with no path back to the dropped lines.
     #[must_use]
     pub fn keep_recoverable(
         view: &str,
@@ -72,8 +73,8 @@ impl Spill {
             || original.to_owned(),
             |path| {
                 format!(
-                    "{view}\n{HEADER_PREFIX} folded view — full {} lines recoverable: {}. \
-                     Read this file ONLY if you need a folded-away line.]",
+                    "{view}\n{HEADER_PREFIX} compacted view — full {} lines recoverable: {}. \
+                     Read this file ONLY if you need an omitted line.]",
                     original.lines().count(),
                     path.display()
                 )

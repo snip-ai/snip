@@ -29,6 +29,7 @@ fn rewrite_outcome_targets_post_tool_output() {
         body: "compacted".to_owned(),
         original_tokens: 10,
         new_tokens: 2,
+        lossy: false,
     };
 
     // Act

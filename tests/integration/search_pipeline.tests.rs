@@ -45,7 +45,7 @@ fn grep_output_is_grouped_by_file_and_compacted() {
     assert2::assert!(let Ok(outcome) = search_for(Surface::Grep).apply(&ctx));
 
     // Assert: one `path:` header per file, matches indented, fewer tokens
-    assert2::assert!(let Outcome::Rewrite { header, body, original_tokens, new_tokens } = outcome);
+    assert2::assert!(let Outcome::Rewrite { header, body, original_tokens, new_tokens, .. } = outcome);
     check!(header.contains("[snip: search-grep |"));
     check!(body.contains("src/optimizers/command/segmenter.rs:\n  12:TODO"));
     check!(body.contains("src/spec/builtin/mod.rs:\n  9:TODO"));

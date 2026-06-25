@@ -17,7 +17,15 @@ import { SNIP_SHELL_SETUP, freshDir } from "./harness/lib.mjs";
 import { cleanupTemp } from "./harness/run.mjs";
 
 const haveBash = spawnSync("bash", ["--version"], { encoding: "utf8" }).status === 0;
-const SKIP = haveBash ? false : "bash not available (the setup script needs it)";
+// This suite's home is the network-isolated Linux docker image. On a real win32
+// host the script's is_windows() arm mutates the actual Windows USER PATH (via
+// PowerShell) — runSetup isolates HOME but cannot isolate the registry — so a
+// local run would toggle the developer's real PATH. Skip there; CI runs on Linux.
+const SKIP = !haveBash
+  ? "bash not available (the setup script needs it)"
+  : process.platform === "win32"
+    ? "skipped on win32: the script's Windows USER PATH branch is not registry-isolatable (covered by the Linux docker CI)"
+    : false;
 
 const MARK_BEGIN = "# >>> snip shell setup >>>";
 
@@ -52,28 +60,31 @@ describe("Phase B — /snip-shell-setup (opt-in shell PATH)", () => {
     // setup: writes the marked block
     const a = runSetup(home, "setup");
     assert.equal(a.status, 0, "setup exits 0");
-    assert.match(a.stdout, /added the binary dir to your PATH/, "setup reports success");
+    assert.match(a.stdout, /ensured the binary dir is on your shell PATH/, "setup reports success");
     const after1 = fs.readFileSync(rc(home), "utf8");
     assert.match(after1, /# >>> snip shell setup >>>/, "begin marker present");
     assert.match(after1, /# <<< snip shell setup <<</, "end marker present");
     assert.match(after1, /export PATH=.*snip\/bin/, "the PATH export points at snip/bin");
 
-    // setup again: no-op, still exactly one block
+    // setup again: idempotent BY EFFECT — it re-reports success but writes no
+    // second block (the script ensures the line is present, it does not track a
+    // distinct "already configured" no-op). countMarkers is the real guarantee.
     const b = runSetup(home, "setup");
     assert.equal(b.status, 0, "second setup exits 0");
-    assert.match(b.stdout, /already configured/, "second setup is a reported no-op");
+    assert.match(b.stdout, /ensured the binary dir is on your shell PATH/, "second setup re-reports success");
     assert.equal(countMarkers(rc(home)), 1, "still exactly one block (idempotent)");
 
     // remove: the block is gone
     const c = runSetup(home, "remove");
     assert.equal(c.status, 0, "remove exits 0");
-    assert.match(c.stdout, /removed the snip PATH line/, "remove reports success");
+    assert.match(c.stdout, /removed the snip PATH entries/, "remove reports success");
     assert.equal(countMarkers(rc(home)), 0, "the block is gone after remove");
 
-    // remove again: nothing to do
+    // remove again: idempotent — re-reports success, leaves zero blocks.
     const d = runSetup(home, "remove");
     assert.equal(d.status, 0, "second remove exits 0");
-    assert.match(d.stdout, /nothing to remove/, "second remove is a reported no-op");
+    assert.match(d.stdout, /removed the snip PATH entries/, "second remove re-reports success");
+    assert.equal(countMarkers(rc(home)), 0, "still zero blocks (idempotent)");
   });
 
   test("default action is setup", { skip: SKIP }, () => {

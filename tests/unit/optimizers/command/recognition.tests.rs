@@ -30,6 +30,41 @@ fn subcommand_skips_leading_flags() {
 }
 
 #[test]
+fn subcommand_skips_git_value_taking_global_options() {
+    // Arrange + Act + Assert: a value-taking git global option's value (`/path`,
+    // `x=y`) must not be mistaken for the sub-command — it resolves to diff/status.
+    check!(
+        parse("git -C /some/path diff HEAD") == Some(("git".to_owned(), Some("diff".to_owned())))
+    );
+    check!(
+        parse("git -c user.name=x status") == Some(("git".to_owned(), Some("status".to_owned())))
+    );
+    check!(
+        parse("git --git-dir /repo/.git log") == Some(("git".to_owned(), Some("log".to_owned())))
+    );
+}
+
+#[test]
+fn git_value_option_skip_is_scoped_to_git() {
+    // Arrange + Act + Assert: `-C` is only a value-taking option for git; for
+    // another command its following word is still the first eligible sub-command.
+    check!(parse("docker -C build run") == Some(("docker".to_owned(), Some("build".to_owned()))));
+}
+
+#[test]
+fn inject_offset_lands_after_subcommand_past_git_global_value() {
+    // Arrange: a value-taking global option puts a path before the sub-command
+    let text = "git -C /some/path diff a.txt";
+
+    // Act
+    let off = inject_offset(text, true).expect("argv0 located");
+
+    // Assert: the splice point falls after the real `diff`, not after `/some/path`
+    check!(&text[..off] == "git -C /some/path diff");
+    check!(&text[off..] == " a.txt");
+}
+
+#[test]
 fn all_assignment_or_empty_has_no_command() {
     // Arrange + Act + Assert
     check!(parse("FOO=bar").is_none());
