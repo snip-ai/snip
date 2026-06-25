@@ -43,34 +43,31 @@ there is no separate installer, and snip never patches your `settings.json`.
 Two layers, two channels. The **binary** self-updates: on `SessionStart` snip
 checks the latest GitHub release in the background and fetches it (checksum-verified)
 when the running binary is older — independent of the plugin manifest version, which
-a third-party marketplace does not auto-refresh. `/snip update` forces a check now.
+a third-party marketplace does not auto-refresh. `snip update` forces a check now.
 The **plugin wiring** (hooks, the `/snip` command, manifest) refreshes only when
 Claude Code re-pulls the marketplace;
 enable auto-update for the `snip` marketplace once (`/plugin` menu, or
 `"autoUpdate": true` on its `extraKnownMarketplaces` entry), or run
 `/plugin marketplace update snip` + `/plugin install snip@snip` on demand.
 
-## Commands — one `/snip`
+## Commands — from your shell
 
-Everything is a single slash-command, `/snip <sub>`:
+snip adds its binary to your **`PATH`** at first install (one clearly-marked,
+removable line in your shell rc), so the meta-commands run straight from a git
+bash shell, with **no model turn**:
 
-| Command | What it does |
+| From a shell | What it does |
 |---|---|
-| `/snip status` | Version, master switch, and per-optimizer state |
-| `/snip gain` | Net token savings (input saved − induced re-read cost) |
-| `/snip config …` | Get / set / list / reset configuration (dotted paths) |
-| `/snip enable` · `/snip disable` | Master switch on / off |
-| `/snip update` | Check for the latest release and fetch the binary if newer |
-| `/snip shell-setup` | Add (or `remove`) the binary's `PATH` line |
-| `/snip uninstall` | Remove snip's data, binary, and `PATH` line (remove the plugin separately) |
+| `snip status` | Version, master switch, and per-optimizer state |
+| `snip gain` | Net token savings (input saved − induced re-read cost) |
+| `snip config …` | Get / set / list / reset configuration (dotted paths) |
+| `snip enable` · `snip disable` | Master switch on / off |
+| `snip update` | Check for the latest release and fetch the binary if newer |
 
-## Run snip from a shell
-
-snip adds its binary to your `PATH` on first install (one clearly-marked,
-removable line in your shell rc), so the same subcommands run straight from a
-shell — `snip status`, `snip gain`, `snip config list` — with **no model turn**.
-Undo the `PATH` line anytime with `/snip shell-setup remove` and re-add it with
-`/snip shell-setup`. This only reaches the **already-installed** binary; install
+No terminal handy? The same commands are one slash-command in Claude Code —
+`/snip <sub>` (e.g. `/snip status`) — which is also where `/snip shell-setup`
+(add or `remove` the `PATH` line) and `/snip uninstall` (full teardown, removing
+the binary too) live. This only reaches the **already-installed** binary; install
 and updates still flow only through the plugin.
 
 ## Platforms

@@ -65,7 +65,7 @@ On first run, the plugin grabs the prebuilt binary for your platform, verifies i
 
 snip updates in two layers, and they refresh through different channels:
 
-- **The binary** — where all the optimizing happens — **updates itself automatically.** On session start snip checks the latest GitHub release in the background and, if a newer build exists, fetches and checksum-verifies it so it's live next session. Nothing to run; `/snip update` forces an immediate check.
+- **The binary** — where all the optimizing happens — **updates itself automatically.** On session start snip checks the latest GitHub release in the background and, if a newer build exists, fetches and checksum-verifies it so it's live next session. Nothing to run; `snip update` forces an immediate check.
 - **The plugin wiring** (hooks, the `/snip` command, manifest) refreshes when Claude Code re-pulls the marketplace. Claude Code does **not** auto-refresh third-party marketplaces by default, so to keep this hands-off, enable auto-update for the `snip` marketplace **once** — toggle it in the `/plugin` menu, or add `"autoUpdate": true` to the `snip` entry under `extraKnownMarketplaces` in your settings. Otherwise refresh on demand with `/plugin marketplace update snip` then `/plugin install snip@snip`.
 
 In practice the binary — the part you actually feel — stays current on its own. The one-time marketplace opt-in only matters for releases that change the hooks or the `/snip` command itself; if the wiring ever lags, the manual refresh above pulls it forward.
@@ -87,23 +87,23 @@ Everything runs on a strict **sub-15ms budget** (most reads finish in 1–2ms), 
 
 ## 🎛️ Usage
 
-snip works the moment it's installed — there's nothing to run. When you want to peek under the hood, it's one command, `/snip <sub>`:
+snip works the moment it's installed — there's nothing to run. It also puts its
+binary on your **`PATH`** at first install, so you drive it straight from a git
+bash shell, with **no model turn**:
 
-| Command | What it does |
+| From a shell | What it does |
 |---|---|
-| `/snip gain` | See your token savings (the honest **net** number) |
-| `/snip status` | Version, master switch, and per-optimizer state |
-| `/snip config …` | Get / set / list / reset settings |
-| `/snip enable` · `/snip disable` | Flip the master switch |
-| `/snip update` | Force a check for the latest release and fetch it if newer |
-| `/snip shell-setup` | Add (or `remove`) the binary's `PATH` line |
-| `/snip uninstall` | Remove snip's data, binary, and `PATH` line (remove the plugin separately) |
+| `snip status` | Version, master switch, and per-optimizer state |
+| `snip gain` | Your token savings (the honest **net** number) |
+| `snip config …` | Get / set / list / reset settings |
+| `snip enable` · `snip disable` | Flip the master switch |
+| `snip update` | Force a check for the latest release and fetch it if newer |
 
-Prefer a terminal? snip puts its binary on your `PATH` on first install, so the
-same subcommands — `snip status`, `snip gain`, `snip config list` — run straight
-from a shell with **no model turn**. Undo the `PATH` line with `/snip shell-setup
-remove`. Everything runs through git bash; install and updates still flow only
-through the plugin.
+No terminal handy? The same commands are also a single slash-command right in
+Claude Code — `/snip status`, `/snip gain`, … — which is also where
+`/snip shell-setup` (add or `remove` the `PATH` line) and `/snip uninstall` (full
+teardown, removing the binary too) live. Everything runs through git bash;
+install and updates still flow only through the plugin.
 
 ---
 
@@ -112,7 +112,7 @@ through the plugin.
 Sane defaults, fully tunable. Settings layer cleanly: **built-in → your user config → an opt-in, trust-gated project layer** (`.snip/config.json`). Tweak a mode, toggle an optimizer, or add your own command rules — all as plain JSON, **no recompile**:
 
 ```text
-/snip config set optimizers.read.mode high
+snip config set optimizers.read.mode high
 ```
 
 The transform vocabulary is **closed and declarative** — no regex, no scripting, no remote-code-execution surface hiding in a config file. Safe by design.
