@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/snip-ai/snip/compare/v0.4.0...v0.4.1) (2026-06-25)
+
+
+### 🐛 Bug Fixes
+
+* target the right shell rc on Windows git bash; refresh command names ([#20](https://github.com/snip-ai/snip/issues/20)) ([77912bb](https://github.com/snip-ai/snip/commit/77912bb82b5ac82106bb3e608f1fac0044017e16))
+
 ## [0.4.0](https://github.com/snip-ai/snip/compare/v0.3.0...v0.4.0) (2026-06-25)
 
 
