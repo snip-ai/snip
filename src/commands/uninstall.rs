@@ -1,9 +1,10 @@
 //! `snip uninstall` — tear down snip's on-disk state and stop auto-reinstall.
 //!
 //! Removes snip's data dir (config, stats, session cache), the managed binary,
-//! and the opt-in PATH line, then leaves a single marker so the next
-//! `SessionStart` does not silently reinstall before the plugin is removed (the
-//! plugin wiring is Claude Code's to remove: `/plugin uninstall snip@snip`).
+//! and the opt-in PATH entries (shell rc files + the Windows USER `PATH`), then
+//! leaves a single marker so the next `SessionStart` does not silently reinstall
+//! before the plugin is removed (the plugin wiring is Claude Code's to remove:
+//! `/plugin uninstall snip@snip`).
 
 use std::fs;
 use std::path::Path;
@@ -37,6 +38,7 @@ pub fn run() -> anyhow::Result<()> {
             // Marker first, so a crash mid-purge still blocks an auto-reinstall.
             let _ = fs::write(dir.join(UNINSTALL_MARKER), b"");
             purge_state(&dir);
+            remove_from_user_path(&dir);
             remove_binary(&dir);
             println!("  removed snip state under {}", dir.display());
         }
@@ -85,6 +87,32 @@ fn remove_binary(data_dir: &Path) {
 /// git-bash `snip-uninstall.sh` wrapper — which outlives the binary it runs —
 /// removes `bin/` instead, keeping every command on git bash.
 fn remove_binary(_data_dir: &Path) {}
+
+#[cfg(windows)]
+/// Remove snip's `bin/` from the Windows USER `PATH` env var (added by
+/// `snip-shell-setup.sh` so non-interactive shells / PowerShell / cmd find snip).
+/// The dir is passed via an env var so the `PowerShell` command needs no quoting;
+/// we wait for it so the `PATH` is clean before the binary is removed.
+fn remove_from_user_path(data_dir: &Path) {
+    use std::os::windows::process::CommandExt;
+    use std::process::{Command, Stdio};
+
+    const PS: &str = "$d=$env:SNIP_BIN_WIN; $p=[Environment]::GetEnvironmentVariable('PATH','User'); \
+         if($p){ $new=(($p -split ';')|Where-Object{$_ -ne $d -and $_ -ne ''}) -join ';'; \
+         [Environment]::SetEnvironmentVariable('PATH',$new,'User') }";
+    let mut cmd = Command::new("powershell");
+    cmd.args(["-NoProfile", "-NonInteractive", "-Command", PS])
+        .env("SNIP_BIN_WIN", data_dir.join("bin"))
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+    let _ = cmd.spawn().map(|mut c| c.wait());
+}
+
+#[cfg(not(windows))]
+#[allow(clippy::missing_const_for_fn)] // signature parity with the Windows arm
+fn remove_from_user_path(_data_dir: &Path) {}
 
 #[cfg(test)]
 #[path = "../../tests/unit/commands/uninstall.tests.rs"]
