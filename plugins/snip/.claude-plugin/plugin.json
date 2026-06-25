@@ -1,7 +1,7 @@
 {
   "name": "snip",
   "displayName": "snip — token & context optimizer",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Multi-surface token & context optimizer for Claude Code. Hooks Read, Bash, Grep, and Glob and rewrites their output in-flight: edit-safe tree-sitter AST Read across 29 languages, Bash/Grep/Glob output rewriting, recoverable overflow, and net-token honesty. Zero markdown injected, no MCP tools to learn. One native binary, installed and updated through this plugin.",
   "author": {
     "name": "Aymeric Pasco",

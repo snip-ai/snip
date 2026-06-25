@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.2](https://github.com/snip-ai/snip/compare/v0.5.1...v0.5.2) (2026-06-25)
+
+
+### 🐛 Bug Fixes
+
+* **overflow:** trim spill breadcrumbs so marginal recoverable compactions still win ([#31](https://github.com/snip-ai/snip/issues/31)) ([28c8c36](https://github.com/snip-ai/snip/commit/28c8c36b388852cd82c932dca014503311259d5a))
+
 ## [0.5.1](https://github.com/snip-ai/snip/compare/v0.5.0...v0.5.1) (2026-06-25)
 
 
