@@ -42,12 +42,15 @@ plugin_version() {
 
 if [ "$SUB" = "update-check" ] || [ "$SUB" = "update" ]; then
   if [ ! -x "$BIN" ]; then
-    # First install (binary absent): trigger the detached bootstrap from the
-    # designated install moment (SessionStart, the `update-check` hook). The
-    # `.uninstalled` marker (written by `snip uninstall`; KEEP IN SYNC with
-    # src/commands/uninstall.rs) suppresses it so a teardown is not silently undone
-    # before the plugin is removed.
-    if [ "$SUB" = "update-check" ] && [ -f "$SCRIPT_DIR/snip-bootstrap.sh" ] && [ ! -f "$HOME_DIR/.uninstalled" ]; then
+    # First install or reinstall after `snip uninstall` (binary absent): trigger the
+    # detached bootstrap from the designated install moment (SessionStart,
+    # `update-check`). If a `.uninstalled` marker exists, the plugin must have been
+    # reinstalled — clear the stale marker so bootstrap proceeds. The marker's only
+    # job was to prevent re-bootstrap while the plugin was still installed but
+    # `snip uninstall` had already run; once the plugin is removed no hooks fire, so
+    # this branch is only reached when the plugin is genuinely active again.
+    if [ "$SUB" = "update-check" ] && [ -f "$SCRIPT_DIR/snip-bootstrap.sh" ]; then
+      rm -f "$HOME_DIR/.uninstalled" 2>/dev/null || true
       nohup bash "$SCRIPT_DIR/snip-bootstrap.sh" "$(plugin_version)" "$HOME_DIR" >/dev/null 2>&1 &
     fi
     exit 0

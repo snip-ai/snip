@@ -43,8 +43,7 @@ impl Spill {
             || format!("{HEADER_PREFIX} output truncated ~{max}/{est} tok — full output unavailable (spill failed).]"),
             |path| {
                 format!(
-                    "{HEADER_PREFIX} output truncated ~{max}/{est} tok — full optimized output: {}. \
-                     Read this file ONLY if you need what's above.]",
+                    "{HEADER_PREFIX} output truncated ~{max}/{est} tok, full: {} (read if needed)]",
                     path.display()
                 )
             },
@@ -73,8 +72,7 @@ impl Spill {
             || original.to_owned(),
             |path| {
                 format!(
-                    "{view}\n{HEADER_PREFIX} compacted view — full {} lines recoverable: {}. \
-                     Read this file ONLY if you need an omitted line.]",
+                    "{view}\n{HEADER_PREFIX} {} lines recoverable: {} (read if needed)]",
                     original.lines().count(),
                     path.display()
                 )
