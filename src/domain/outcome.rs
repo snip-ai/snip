@@ -23,6 +23,10 @@ pub enum Outcome {
         original_tokens: usize,
         /// Estimated tokens of the rewritten output.
         new_tokens: usize,
+        /// Whether the view dropped distinct content it cannot reconstruct (a
+        /// `Truncate` elided the middle): the caller must spill the full original
+        /// so the dropped records stay recoverable (the no-discard non-negotiable).
+        lossy: bool,
     },
     /// Replace a Pre surface's entire `tool_input`.
     FixInput(serde_json::Value),

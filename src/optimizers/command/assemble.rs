@@ -10,6 +10,7 @@ use crate::domain::Outcome;
 use crate::optimizers::SpecOptimizer;
 use crate::overflow::Spill;
 use crate::spec::OptimizerSpec;
+use crate::tokens::estimate_tokens;
 
 /// Slice `captured` on `plan.token` and optimize each recognized unit's slice.
 ///
@@ -41,10 +42,31 @@ pub fn assemble(
 /// Optimize one slice through its spec, capping with the shared overflow service.
 fn optimize(slice: &str, spec: &OptimizerSpec, cfg: &Config, session: Option<&str>) -> String {
     match SpecOptimizer::new(spec.clone()).apply_to(slice, cfg.secret_safe) {
-        Outcome::Rewrite { header, body, .. } => {
+        Outcome::Rewrite {
+            header,
+            body,
+            lossy,
+            ..
+        } => {
             let ov = cfg.overflow_for_command(&spec.name);
-            let capped = Spill::apply(body, session, &spec.name, &ov);
-            format!("{header}{capped}")
+            if lossy {
+                // A lossy `Truncate` dropped the middle records; spill the full slice
+                // so they stay recoverable, then breadcrumb the view. The breadcrumb
+                // costs a line, so a near-threshold short output can end up no smaller
+                // than the original — re-apply the no-inflation guard and fall back to
+                // the verbatim slice (nothing dropped, no spill needed) when it does.
+                let recoverable = Spill::keep_recoverable(&body, slice, session, &spec.name);
+                let capped = Spill::apply(recoverable, session, &spec.name, &ov);
+                let view = format!("{header}{capped}");
+                if estimate_tokens(&view) < estimate_tokens(slice) {
+                    view
+                } else {
+                    slice.to_string()
+                }
+            } else {
+                let capped = Spill::apply(body, session, &spec.name, &ov);
+                format!("{header}{capped}")
+            }
         }
         _ => slice.to_string(),
     }

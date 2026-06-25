@@ -102,7 +102,7 @@ fn keep_recoverable_spills_the_original_and_breadcrumbs_the_view() {
         // Assert: the folded view is kept, a breadcrumb points at the spill, and the
         // spill file holds the FULL original (every dropped line is recoverable)
         check!(out.starts_with(&view));
-        check!(out.contains("folded view"));
+        check!(out.contains("compacted view"));
         let spill = fs::read_dir(home.join("session-cache").join("sess-r"))
             .unwrap()
             .filter_map(Result::ok)

@@ -154,6 +154,39 @@ fn secret_safe_masks_a_credential_line() {
 }
 
 #[test]
+fn truncate_that_elides_flags_the_rewrite_lossy() {
+    // Arrange: more distinct match lines than the truncate cap (head 2 + tail 1)
+    // can keep, so the middle is elided and must be flagged for recovery.
+    let opt = SpecOptimizer::new(grep_spec());
+    let output = (0..40)
+        .map(|i| format!("src/file_{i:02}.rs:{i}:hit"))
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    // Act
+    let outcome = opt.apply_to(&output, false);
+
+    // Assert: a lossy rewrite — the caller is responsible for spilling the original
+    assert2::assert!(let Outcome::Rewrite { lossy, .. } = outcome);
+    check!(lossy);
+}
+
+#[test]
+fn rewrite_without_an_elision_is_not_lossy() {
+    // Arrange: many duplicates collapse to a single `(×N)` record, so the truncate
+    // cap never fires — nothing is dropped, so the rewrite is not lossy.
+    let opt = SpecOptimizer::new(grep_spec());
+    let output = "src/optimizers/command/segmenter.rs:12:hit\n".repeat(30);
+
+    // Act
+    let outcome = opt.apply_to(&output, false);
+
+    // Assert
+    assert2::assert!(let Outcome::Rewrite { lossy, .. } = outcome);
+    check!(!lossy);
+}
+
+#[test]
 fn missing_output_passes_through() {
     // Arrange
     let opt = SpecOptimizer::new(grep_spec());

@@ -47,7 +47,7 @@ fn read_optimizer_rewrites_commented_code() {
     assert2::assert!(let Ok(outcome) = ReadOptimizer.apply(&ctx));
 
     // Assert
-    assert2::assert!(let Outcome::Rewrite { header, body, original_tokens, new_tokens } = outcome);
+    assert2::assert!(let Outcome::Rewrite { header, body, original_tokens, new_tokens, .. } = outcome);
     check!(header.contains("[snip: read | rust"));
     check!(!body.contains("comment"));
     check!(new_tokens < original_tokens);

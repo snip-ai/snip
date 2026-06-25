@@ -118,6 +118,8 @@ fn apply_read(ctx: &HookCtx<'_>) -> Outcome {
         body,
         original_tokens,
         new_tokens,
+        // Read compaction is reversible (origin map / edit-fix), never discarded.
+        lossy: false,
     }
 }
 
@@ -165,6 +167,8 @@ fn dedupe_notice(ctx: &HookCtx<'_>, path: &str, source: &str) -> Option<Outcome>
         body,
         original_tokens,
         new_tokens,
+        // A dedupe notice / diff is a complete view of the change, nothing dropped.
+        lossy: false,
     })
 }
 
