@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/snip-ai/snip/compare/v0.5.2...v0.6.0) (2026-06-26)
+
+
+### 🚀 Features
+
+* context-optimization audit follow-ups (always-optimize large files/commands, Edit-after-Read recovery, glob fold) ([#33](https://github.com/snip-ai/snip/issues/33)) ([632dc47](https://github.com/snip-ai/snip/commit/632dc479e06be02d1d96851b15c6958d0f14111a))
+
 ## [0.5.2](https://github.com/snip-ai/snip/compare/v0.5.1...v0.5.2) (2026-06-25)
 
 
