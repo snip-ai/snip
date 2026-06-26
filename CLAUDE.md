@@ -36,8 +36,12 @@ base shell / git / per-language-framework), `search` (Grep/Glob).
 
 ## Non-negotiables
 
-- **Hot path < 15 ms.** Config = a tiny JSON read once; **no SQLite/tiktoken on
-  the hot path**; O(1) spec lookup; lazy grammars.
+- **Hot path < 15 ms** for typical inputs. Config = a tiny JSON read once; **no
+  SQLite/tiktoken on the hot path**; O(1) spec lookup; lazy grammars. The one
+  deliberate exception: the Read parse deadline **scales with file size** so snip
+  always optimizes large files too (it never passes a big file through
+  unoptimized) — small/medium files keep their speed since the budget is a
+  deadline, not a cost, and a generous ceiling still bounds the worst case.
 - **Hooks always exit 0** — catch every error **and panic** (`catch_unwind`), log
   to stderr, return `Ok(())`.
 - **Never writes to user source files** — snip's own state (config, stats DB,

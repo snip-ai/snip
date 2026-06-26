@@ -117,7 +117,8 @@ pub fn notice(file_path: &str, full_tokens: usize) -> String {
         .unwrap_or(file_path);
     format!(
         "{HEADER_PREFIX} dedupe — {filename} is unchanged since your earlier Read this session; \
-         full view (~{full_tokens} tok) omitted. Re-Read with an offset or limit to bypass.]"
+         full view (~{full_tokens} tok) omitted. Re-Read with offset/limit for the verbatim \
+         slice (exact bytes to Edit).]"
     )
 }
 

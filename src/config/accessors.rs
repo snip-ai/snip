@@ -6,8 +6,15 @@
 use super::{AutodetectCfg, CompactMode, Config};
 use crate::overflow::OverflowCfg;
 
-/// Command-surface overflow default — leaner than the 8000 of read/grep/glob.
+/// Command-surface overflow default — leaner than grep/glob's 8000.
 const COMMAND_MAX_TOKENS: usize = 6000;
+
+/// Read-surface overflow default — far larger than grep/glob's 8000. Read
+/// compaction is LOSSLESS (comments stripped, code byte-identical), so capping it
+/// low would truncate large-file reads and force an induced spill re-read that
+/// costs more tokens than it saves. A high ceiling still bounds a pathological
+/// multi-MB file; recoverable spill only kicks in past this.
+const READ_MAX_TOKENS: usize = 32_000;
 
 /// The command optimizer family key (`optimizers.command.*`) — the family-wide
 /// fallback for an overflow override, since the per-unit budget is keyed by the
@@ -64,6 +71,20 @@ impl Config {
     #[must_use]
     pub fn overflow_for(&self, name: &str) -> &OverflowCfg {
         self.optimizer_overflow(name).unwrap_or(&self.overflow)
+    }
+
+    /// The effective overflow budget for the **read** optimizer: its per-optimizer
+    /// override (`optimizers.read.overflow`) if set, else [`READ_MAX_TOKENS`] — a
+    /// far higher cap than grep/glob, because Read compaction is lossless and a low
+    /// cap would force net-negative re-reads of large files.
+    #[must_use]
+    pub fn overflow_for_read(&self) -> OverflowCfg {
+        self.optimizer_overflow("read")
+            .cloned()
+            .unwrap_or_else(|| OverflowCfg {
+                max_tokens: READ_MAX_TOKENS,
+                ..OverflowCfg::default()
+            })
     }
 
     /// The effective overflow budget for a **command** optimizer `name`: the
