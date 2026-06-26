@@ -21,24 +21,27 @@ pub struct ReadOptimizer;
 
 const READ_SURFACES: &[Surface] = &[Surface::Read, Surface::Edit, Surface::Write];
 
-/// Files larger than this (bytes) are passed through unparsed: a multi-megabyte
-/// source is almost always generated/minified, and a tree-sitter parse on the
-/// model-blocking Read path could blow the latency budget. Identical re-reads
-/// still dedupe (that check is cheap and runs first).
-const MAX_READ_BYTES: usize = 1_000_000;
+/// Hard byte cap: a cheap pre-filter, not the parse guarantee. Files this large
+/// are almost always generated/minified (low compaction upside, high parse cost),
+/// so past this we pass through without attempting a parse. Everything under it
+/// IS optimized — the size-scaled parse budget ([`crate::compaction::parse`])
+/// grants a large file enough time to finish. Identical re-reads still dedupe
+/// (that check is cheap and runs first).
+const MAX_READ_BYTES: usize = 5_000_000;
 
 // Guidance templates: `{snip}` is substituted at runtime with a runnable
 // invocation (the plugin installs snip to `$SNIP_HOME/bin`, which it does NOT add
 // to `PATH`, so a bare `snip resolve` would fail in a real install). `guidance`
 // wraps the final line in the `[snip: …]` header so `write-guard` strips it.
-/// Soft-mode guidance: code is byte-identical, so Edits normally just work.
-const GUIDANCE_SOFT: &str = "comments stripped, code byte-identical — use Edit normally; \
-on \"String to replace not found\", pipe the failing old_string to `{snip} resolve <file>` \
-and retry with its stdout.";
-/// Medium/high guidance: lines are rewritten, so resolve before every Edit.
+/// Soft-mode guidance: code-only lines match as-is; a comment-spanning Edit needs
+/// a verbatim slice (a windowed re-Read) or `resolve`.
+const GUIDANCE_SOFT: &str = "comments removed — code lines without a comment match as-is; \
+for an Edit whose old_string spans a removed comment, re-Read those lines with offset/limit \
+(returns the verbatim slice) or pipe old_string to `{snip} resolve <file>`.";
+/// Medium/high guidance: lines are rewritten, so use a verbatim slice or resolve.
 const GUIDANCE_COLLAPSED: &str = "comments stripped AND code collapsed — text copied from \
-this view may NOT match the file. Before EVERY Edit on this file, pipe your old_string to \
-`{snip} resolve <file>` and use its stdout as old_string.";
+this view will NOT match the file. To Edit, re-Read the target lines with offset/limit (the \
+verbatim slice) or pipe old_string to `{snip} resolve <file>`.";
 
 impl Optimizer for ReadOptimizer {
     // The trait fixes the return as `-> &str`, so the 'static literal trips a lint.
@@ -65,12 +68,19 @@ impl Optimizer for ReadOptimizer {
     }
 }
 
-/// `Read`: dedupe an identical re-read, else compact for the configured mode when
-/// it saves ≥5% (so the recovery-guidance header stays net-positive).
+/// `Read`: a windowed read (offset/limit) passes through VERBATIM (exact bytes for
+/// an Edit); a full read dedupes an identical re-read, else compacts for the
+/// configured mode when it saves ≥5% (so the guidance header stays net-positive).
 fn apply_read(ctx: &HookCtx<'_>) -> Outcome {
     let (Some(path), Some(source)) = (file_path(ctx), ctx.output) else {
         return Outcome::PassThrough;
     };
+    // A windowed read (offset/limit) is the model asking for a specific slice —
+    // typically to copy exact bytes for an Edit. Return it verbatim so `old_string`
+    // matches the real file; only full reads are compacted (where the savings are).
+    if windowed(ctx) {
+        return Outcome::PassThrough;
+    }
     // secret_safe (opt-in, off by default): pass a secret-bearing source file
     // through uncompacted BEFORE dedupe — so no compacted view, spill file, or
     // dedupe-cache copy of the credential is ever produced. Masking source bytes

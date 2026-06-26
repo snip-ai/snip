@@ -37,10 +37,20 @@ no `cat -n` prefixes: `{ "type": "text", "file": { "filePath", "content",
 ## Pre-hook validation limit (Claude Code ≥ 2.1.x)
 
 The `Edit` tool validates `old_string` against the real file **before** PreToolUse
-hooks run. A non-matching `old_string` aborts before `edit-fix` ever runs. The
-live recovery path is **`snip resolve <file>`** (the model pipes the failing
-`old_string` to stdin and retries with the stdout); the compact guidance header
-documents this. The `edit-fix` hook stays for versions that honor `updatedInput`.
+hooks run. A non-matching `old_string` aborts before `edit-fix` ever runs, so the
+transparent fix is dead on current Claude Code. Two recovery paths the guidance
+header documents:
+
+1. **Windowed re-Read = verbatim.** A Read with `offset`/`limit` passes through
+   **uncompacted** (`apply_read` returns `PassThrough` for any windowed read), so
+   re-Reading the target lines yields the file's exact bytes — copy `old_string`
+   from there and the Edit matches. This is the primary recovery: it fits the
+   model's instinct to re-read for the real content, and only full reads (where the
+   savings are) are compacted. The dedupe notice points here too.
+2. **`snip resolve <file>`** — pipe the failing `old_string` to stdin, retry with
+   the stdout (AST-anchored fuzzy for soft, origin map for medium/high).
+
+The `edit-fix` hook stays for versions that honor `updatedInput`.
 
 ## Command surface (Bash) specifics
 

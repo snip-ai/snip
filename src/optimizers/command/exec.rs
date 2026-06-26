@@ -13,7 +13,7 @@ use anyhow::{Context, anyhow};
 use crate::config::Config;
 use crate::optimizers::command::assemble::assemble;
 use crate::optimizers::command::capture::capture;
-use crate::optimizers::command::{CommandSpecs, Plan, autodetect, b64};
+use crate::optimizers::command::{CommandSpecs, Plan, b64, unrecognized};
 use crate::overflow::Spill;
 use crate::stats::Tracker;
 use crate::tokens::estimate_tokens;
@@ -123,49 +123,42 @@ fn execute(command: &str) -> anyhow::Result<RunOutcome> {
                     saved: None,
                 });
             }
-            let text = std::str::from_utf8(&buf).ok();
-            let compacted = text.and_then(|text| {
-                // Same guard: a panic in auto-detect degrades to verbatim output.
-                guarded_opt(
-                    || autodetect::compact(text, cfg.autodetect_for("command"), cfg.secret_safe),
-                    || None,
-                )
-            });
-            let (stdout, saved) = match (compacted, text) {
-                (Some(view), Some(text)) => {
-                    let before = estimate_tokens(&String::from_utf8_lossy(&buf));
-                    // Keep the full original recoverable only when the view actually
-                    // dropped distinct lines (a lossy log fold). The faithful JSON
-                    // encoders lose nothing; secret_safe must not persist the unmasked
-                    // original; and a fold of byte-identical lines re-expands exactly,
-                    // so none of those need a spill. Then re-apply the no-inflation guard.
-                    let lossy_fold = !cfg.secret_safe
-                        && !autodetect::is_json_shaped(text)
-                        && autodetect::fold_is_lossy(&view, text);
-                    let candidate = if lossy_fold {
-                        Spill::keep_recoverable(
-                            &view,
-                            text,
-                            session.as_deref(),
-                            "command-autodetect",
-                        )
-                    } else {
-                        view
-                    };
-                    let after = estimate_tokens(&candidate);
-                    if after < before {
-                        (candidate.into_bytes(), Some((before, after)))
-                    } else {
-                        (buf, None) // breadcrumb tipped it over → verbatim, no inflation
-                    }
-                }
-                _ => (buf, None),
+            // Non-UTF8 (binary) output: nothing safe to rewrite — pass through.
+            let Ok(text) = std::str::from_utf8(&buf) else {
+                return Ok(RunOutcome {
+                    stdout: buf,
+                    code,
+                    saved: None,
+                });
             };
-            Ok(RunOutcome {
-                stdout,
-                code,
-                saved,
-            })
+            let before = estimate_tokens(text);
+            // Source dump → AST read-engine compaction; else structured auto-detect
+            // (JSON/TOON, repetitive-log fold); else raw. Guarded so a panic degrades
+            // to verbatim output.
+            let view = guarded_opt(
+                || unrecognized::optimized_view(command, text, &cfg, session.as_deref()),
+                || text.to_owned(),
+            );
+            // Universal floor: cap the shown view + recoverable spill so even
+            // unrecognized, non-foldable output never floods context. A no-op when
+            // the view is already under budget — small output stays byte-identical.
+            let ov = cfg.overflow_for_command("command");
+            let capped = Spill::apply(view, session.as_deref(), "command", &ov);
+            let after = estimate_tokens(&capped);
+            // No-inflation guard: keep the cap only when it actually saved tokens.
+            if after < before {
+                Ok(RunOutcome {
+                    stdout: capped.into_bytes(),
+                    code,
+                    saved: Some((before, after)),
+                })
+            } else {
+                Ok(RunOutcome {
+                    stdout: buf,
+                    code,
+                    saved: None,
+                })
+            }
         }
     }
 }

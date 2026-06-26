@@ -135,7 +135,14 @@ impl Dispatcher {
         } else {
             body
         };
-        let body = Spill::apply(body, ctx.session_id, name, ctx.cfg.overflow_for(name));
+        // Read compaction is lossless, so Read gets a far higher overflow cap than
+        // grep/glob — a low cap would force net-negative re-reads of large files.
+        let ov = if name == "read" {
+            ctx.cfg.overflow_for_read()
+        } else {
+            ctx.cfg.overflow_for(name).clone()
+        };
+        let body = Spill::apply(body, ctx.session_id, name, &ov);
         // The model pays for the injected header (guidance/breadcrumb) plus the body,
         // so the recorded NET must count both — body-only would overstate the gain by
         // the per-rewrite header tax.

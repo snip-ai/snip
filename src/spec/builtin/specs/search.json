@@ -13,6 +13,7 @@
     "surface": "glob",
     "transforms": [
       { "op": "dedupe" },
+      { "op": "rank", "by": "path" },
       { "op": "group", "by": "dir" },
       { "op": "truncate", "head": 100, "tail": 20 }
     ]

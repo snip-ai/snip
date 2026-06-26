@@ -16,7 +16,8 @@ build_args=()
 [ -n "${CLAUDE_VERSION:-}" ] && build_args+=(--build-arg "CLAUDE_VERSION=${CLAUDE_VERSION}")
 
 echo ">> building ${image}"
-docker build "${build_args[@]}" -f "${root}/tests/docker/Dockerfile" -t "${image}" "${root}"
+# `${arr[@]+"${arr[@]}"}` so an empty array doesn't trip `set -u` on bash 3.2 (macOS).
+docker build ${build_args[@]+"${build_args[@]}"} -f "${root}/tests/docker/Dockerfile" -t "${image}" "${root}"
 
 echo ">> running (network-isolated)"
 exec docker run --rm --network=none "${image}" "$@"

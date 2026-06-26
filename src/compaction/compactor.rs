@@ -91,9 +91,10 @@ impl<'a> Compactor<'a> {
 
     /// Parse `source` and collect comment + string node ranges in one DFS.
     ///
-    /// The parse is wall-clock-bounded ([`super::parse::parse_bounded`]): a source
-    /// too large to parse within the hot-path budget yields `None`, so the caller
-    /// passes the file through unchanged rather than stalling the Read.
+    /// The parse is wall-clock-bounded ([`super::parse::parse_bounded`]) with a
+    /// size-scaled deadline, so even large files get optimized; only a pathological
+    /// input that blows the ceiling yields `None`, passing the file through
+    /// unchanged rather than stalling the Read.
     fn scan(&self, source: &str) -> Option<Scan> {
         let mut parser = Parser::new();
         parser.set_language(&self.spec.grammar()).ok()?;

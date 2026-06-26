@@ -51,6 +51,24 @@ fn compacts_rust_read() {
 }
 
 #[test]
+fn windowed_read_passes_through_verbatim_for_editing() {
+    // Arrange: the same comment-heavy file a FULL read compacts — but with an offset
+    // set, the model wants the exact bytes to copy a precise Edit old_string.
+    let cfg = Config::default();
+    let input = json!({"file_path": "/x.rs", "offset": 1});
+    let src = format!(
+        "{}fn main() {{\n    let x = 1;\n    let y = 2;\n}}\n",
+        "// EXPLANATORY: long doc comment line with enough words to strip real tokens.\n".repeat(8)
+    );
+
+    // Act
+    assert2::assert!(let Ok(outcome) = ReadOptimizer.apply(&ctx(Surface::Read, &input, Some(src.as_str()), &cfg)));
+
+    // Assert: verbatim (no compaction), so an old_string copied here matches the file
+    assert2::assert!(let Outcome::PassThrough = outcome);
+}
+
+#[test]
 fn secret_bearing_source_passes_through_under_secret_safe() {
     // Arrange: a comment-heavy file that WOULD compact, but carries a credential.
     // With secret_safe on it must pass through — no compacted view, spill, or
@@ -163,11 +181,11 @@ fn edit_corrects_a_stripped_old_string() {
 
 #[test]
 fn oversize_source_passes_through_unparsed() {
-    // Arrange: a source above MAX_READ_BYTES (1 MB) and no session → no dedupe,
-    // so the oversize guard (line 77) is the path taken.
+    // Arrange: a source above MAX_READ_BYTES (5 MB) and no session → no dedupe,
+    // so the oversize byte-cap pre-filter is the path taken (no parse attempted).
     let cfg = Config::default();
     let input = json!({"file_path": "/big.rs"});
-    let big = "fn a() {}\n".repeat(120_000); // ~1.08 MB > 1_000_000 bytes
+    let big = "fn a() {}\n".repeat(550_000); // ~5.5 MB > 5_000_000 bytes
 
     // Act
     assert2::assert!(let Ok(outcome) = ReadOptimizer.apply(&ctx(Surface::Read, &input, Some(&big), &cfg)));

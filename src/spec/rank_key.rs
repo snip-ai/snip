@@ -12,6 +12,10 @@ pub enum RankKey {
     /// Surface error/failure lines first; the rest follow, order preserved. Pairs
     /// with the `RelevanceFirst` overflow strategy so the useful lines survive a cap.
     ErrorsFirst,
+    /// Lexicographic by full line. Used before `group(dir)` on Glob output so
+    /// same-directory paths — interleaved by Claude Code's mtime ordering — become
+    /// consecutive and actually fold. The full set of paths is kept, just reordered.
+    Path,
 }
 
 impl RankKey {
@@ -21,6 +25,10 @@ impl RankKey {
         match self {
             Self::ErrorsFirst => {
                 records.sort_by_key(|r| usize::from(!contains_error_marker(r)));
+                records
+            }
+            Self::Path => {
+                records.sort();
                 records
             }
         }

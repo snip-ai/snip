@@ -209,3 +209,49 @@ fn wrappable_is_false_for_an_all_blank_command() {
     // Arrange + Act + Assert: only whitespace → no non-blank unit to wrap
     check!(!Plan::wrappable("   "));
 }
+
+#[test]
+fn injection_skips_a_format_flag_the_user_set_explicitly() {
+    // Arrange: cargo-check injects --message-format=json + --color=never; the user
+    // asked for --message-format=human, which would make cargo error if overridden.
+    let specs = CommandSpecs::load(&Config::default());
+
+    // Act
+    assert2::assert!(let Some(plan) = Plan::build("cargo build --message-format=human", &specs));
+
+    // Assert: the conflicting format flag is dropped, the user's stays, and the
+    // non-conflicting --color=never still injects.
+    check!(plan.recognized == vec![Some("cargo-check".to_owned())]);
+    check!(!plan.wrapped.contains("--message-format=json"));
+    check!(plan.wrapped.contains("--message-format=human"));
+    check!(plan.wrapped.contains("--color=never"));
+}
+
+#[test]
+fn injection_applies_fully_when_no_conflicting_flag_is_present() {
+    // Arrange
+    let specs = CommandSpecs::load(&Config::default());
+
+    // Act
+    assert2::assert!(let Some(plan) = Plan::build("cargo build", &specs));
+
+    // Assert: with no user override, both flags inject as before (no regression).
+    check!(plan.wrapped.contains("--message-format=json"));
+    check!(plan.wrapped.contains("--color=never"));
+}
+
+#[test]
+fn injection_targets_the_real_tool_through_a_wrapper() {
+    // Arrange: a sudo-wrapped cargo build still resolves to the cargo-check spec.
+    let specs = CommandSpecs::load(&Config::default());
+
+    // Act
+    assert2::assert!(let Some(plan) = Plan::build("sudo cargo build", &specs));
+
+    // Assert: recognized through the wrapper, flags spliced after `build`.
+    check!(plan.recognized == vec![Some("cargo-check".to_owned())]);
+    check!(
+        plan.wrapped
+            .contains("sudo cargo build --message-format=json")
+    );
+}
