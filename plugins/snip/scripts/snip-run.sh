@@ -42,16 +42,24 @@ plugin_version() {
 
 if [ "$SUB" = "update-check" ] || [ "$SUB" = "update" ]; then
   if [ ! -x "$BIN" ]; then
-    # First install or reinstall after `snip uninstall` (binary absent): trigger the
-    # detached bootstrap from the designated install moment (SessionStart,
-    # `update-check`). If a `.uninstalled` marker exists, the plugin must have been
-    # reinstalled — clear the stale marker so bootstrap proceeds. The marker's only
-    # job was to prevent re-bootstrap while the plugin was still installed but
-    # `snip uninstall` had already run; once the plugin is removed no hooks fire, so
-    # this branch is only reached when the plugin is genuinely active again.
-    if [ "$SUB" = "update-check" ] && [ -f "$SCRIPT_DIR/snip-bootstrap.sh" ]; then
-      rm -f "$HOME_DIR/.uninstalled" 2>/dev/null || true
-      nohup bash "$SCRIPT_DIR/snip-bootstrap.sh" "$(plugin_version)" "$HOME_DIR" >/dev/null 2>&1 &
+    # Binary absent. The bootstrap is spawned from here (a native .exe can't spawn a
+    # shell that survives its own exit on Windows; bash can, via nohup).
+    #  - `update-check` (automatic, every SessionStart): bootstrap a first install,
+    #    but HONOR a `.uninstalled` marker. `snip uninstall` writes that marker and
+    #    removes the binary; while the plugin is still installed its hooks keep
+    #    firing, so without this guard the next SessionStart would silently
+    #    re-download the binary and undo the uninstall. Stay dormant instead (no
+    #    bootstrap, marker left intact) until the plugin itself is removed.
+    #  - `update` (explicit `/snip update`): the user is deliberately (re)installing,
+    #    so clear any `.uninstalled` marker and bootstrap. This is how to bring snip
+    #    back after `snip uninstall` without removing and re-adding the plugin.
+    if [ -f "$SCRIPT_DIR/snip-bootstrap.sh" ]; then
+      if [ "$SUB" = "update" ]; then
+        rm -f "$HOME_DIR/.uninstalled" 2>/dev/null || true
+        nohup bash "$SCRIPT_DIR/snip-bootstrap.sh" "$(plugin_version)" "$HOME_DIR" >/dev/null 2>&1 &
+      elif [ ! -f "$HOME_DIR/.uninstalled" ]; then
+        nohup bash "$SCRIPT_DIR/snip-bootstrap.sh" "$(plugin_version)" "$HOME_DIR" >/dev/null 2>&1 &
+      fi
     fi
     exit 0
   fi
