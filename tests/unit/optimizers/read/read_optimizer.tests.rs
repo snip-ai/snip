@@ -51,9 +51,10 @@ fn compacts_rust_read() {
 }
 
 #[test]
-fn windowed_read_passes_through_verbatim_for_editing() {
-    // Arrange: the same comment-heavy file a FULL read compacts — but with an offset
-    // set, the model wants the exact bytes to copy a precise Edit old_string.
+fn windowed_read_is_compacted_like_a_full_read() {
+    // Arrange: a comment-heavy file read WITH an offset. snip compacts windowed reads
+    // too — there is no verbatim escape, so a large window can't pull the uncompacted
+    // source; `resolve` is the recovery path for an Edit.
     let cfg = Config::default();
     let input = json!({"file_path": "/x.rs", "offset": 1});
     let src = format!(
@@ -64,8 +65,11 @@ fn windowed_read_passes_through_verbatim_for_editing() {
     // Act
     assert2::assert!(let Ok(outcome) = ReadOptimizer.apply(&ctx(Surface::Read, &input, Some(src.as_str()), &cfg)));
 
-    // Assert: verbatim (no compaction), so an old_string copied here matches the file
-    assert2::assert!(let Outcome::PassThrough = outcome);
+    // Assert: compacted (comments stripped) with resolve-only guidance — no re-Read.
+    assert2::assert!(let Outcome::Rewrite { header, body, .. } = outcome);
+    check!(!body.contains("EXPLANATORY"));
+    check!(header.contains("resolve <file>"));
+    check!(!header.contains("re-Read"));
 }
 
 #[test]

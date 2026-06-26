@@ -42,20 +42,21 @@ no `cat -n` prefixes: `{ "type": "text", "file": { "filePath", "content",
 ## Pre-hook validation limit (Claude Code ≥ 2.1.x)
 
 The `Edit` tool validates `old_string` against the real file **before** PreToolUse
-hooks run. A non-matching `old_string` aborts before `edit-fix` ever runs, so the
-transparent fix is dead on current Claude Code. Two recovery paths the guidance
-header documents:
+hooks run, so a non-matching `old_string` aborts before `edit-fix` ever runs — the
+transparent in-hook fix is dead on current Claude Code. Re-confirmed empirically on
+**2.1.193**: a PreToolUse/Edit hook does **not** fire on a non-matching `old_string`,
+and `PostToolUse` does **not** fire on a failed Edit — so there is no just-in-time
+nudge either. The **single** recovery, documented in the Read guidance header:
 
-1. **Windowed re-Read = verbatim.** A Read with `offset`/`limit` passes through
-   **uncompacted** (`apply_read` returns `PassThrough` for any windowed read), so
-   re-Reading the target lines yields the file's exact bytes — copy `old_string`
-   from there and the Edit matches. This is the primary recovery: it fits the
-   model's instinct to re-read for the real content, and only full reads (where the
-   savings are) are compacted. The dedupe notice points here too.
-2. **`snip resolve <file>`** — pipe the failing `old_string` to stdin, retry with
-   the stdout (AST-anchored fuzzy for soft, origin map for medium/high).
+**`snip resolve <file>`** — pipe the failing `old_string` to stdin, retry the Edit
+with the stdout (AST-anchored fuzzy for soft, origin map for medium/high). There is
+**no re-Read escape**: every read is compacted (windowed reads included), so the
+model cannot recover the exact bytes by re-Reading — `resolve` is the only path. It
+runs through Bash untouched (`bash-route` never wraps a `snip` command), so its
+output reaches the model verbatim.
 
-The `edit-fix` hook stays for versions that honor `updatedInput`.
+The `edit-fix` hook stays registered for older Claude Code / any future version that
+validates `old_string` **after** PreToolUse (where the in-hook fix would work).
 
 ## Command surface (Bash) specifics
 

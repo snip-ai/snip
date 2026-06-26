@@ -29,19 +29,19 @@ const READ_SURFACES: &[Surface] = &[Surface::Read, Surface::Edit, Surface::Write
 /// (that check is cheap and runs first).
 const MAX_READ_BYTES: usize = 5_000_000;
 
-// Guidance templates: `{snip}` is substituted at runtime with a runnable
-// invocation (the plugin installs snip to `$SNIP_HOME/bin`, which it does NOT add
-// to `PATH`, so a bare `snip resolve` would fail in a real install). `guidance`
-// wraps the final line in the `[snip: …]` header so `write-guard` strips it.
-/// Soft-mode guidance: code-only lines match as-is; a comment-spanning Edit needs
-/// a verbatim slice (a windowed re-Read) or `resolve`.
-const GUIDANCE_SOFT: &str = "comments removed — code lines without a comment match as-is; \
-for an Edit whose old_string spans a removed comment, re-Read those lines with offset/limit \
-(returns the verbatim slice) or pipe old_string to `{snip} resolve <file>`.";
-/// Medium/high guidance: lines are rewritten, so use a verbatim slice or resolve.
-const GUIDANCE_COLLAPSED: &str = "comments stripped AND code collapsed — text copied from \
-this view will NOT match the file. To Edit, re-Read the target lines with offset/limit (the \
-verbatim slice) or pipe old_string to `{snip} resolve <file>`.";
+// Guidance templates: `{snip}` is substituted at runtime with a runnable invocation
+// (the plugin installs snip to `$SNIP_HOME/bin`, which it does NOT add to `PATH`, so
+// a bare `snip resolve` would fail in a real install — hence the absolute path).
+// `guidance` wraps the final line in the `[snip: …]` header so `write-guard` strips
+// it. There is no re-Read recovery — every read is compacted — so `resolve` (which
+// returns the exact bytes for a given `old_string`) is the single recovery path.
+/// Soft-mode guidance: code lines match as-is; recover a comment-spanning Edit via `resolve`.
+const GUIDANCE_SOFT: &str = "comments stripped (code is byte-identical). If an Edit's \
+old_string won't match, recover the exact bytes: pipe old_string to `{snip} resolve <file>`.";
+/// Medium/high guidance: lines are rewritten, so recover any Edit via `resolve`.
+const GUIDANCE_COLLAPSED: &str = "comments stripped and code collapsed — text copied from \
+this view will NOT match the file. Recover bytes for an Edit: pipe old_string to \
+`{snip} resolve <file>`.";
 
 impl Optimizer for ReadOptimizer {
     // The trait fixes the return as `-> &str`, so the 'static literal trips a lint.
@@ -68,19 +68,18 @@ impl Optimizer for ReadOptimizer {
     }
 }
 
-/// `Read`: a windowed read (offset/limit) passes through VERBATIM (exact bytes for
-/// an Edit); a full read dedupes an identical re-read, else compacts for the
-/// configured mode when it saves ≥5% (so the guidance header stays net-positive).
+/// `Read`: dedupes an identical re-read, else compacts for the configured mode when
+/// it saves ≥5% (so the guidance header stays net-positive). Windowed reads
+/// (offset/limit) compact too — there is no verbatim escape; `snip resolve` recovers
+/// an Edit whose `old_string` spans a stripped comment.
 fn apply_read(ctx: &HookCtx<'_>) -> Outcome {
     let (Some(path), Some(source)) = (file_path(ctx), ctx.output) else {
         return Outcome::PassThrough;
     };
-    // A windowed read (offset/limit) is the model asking for a specific slice —
-    // typically to copy exact bytes for an Edit. Return it verbatim so `old_string`
-    // matches the real file; only full reads are compacted (where the savings are).
-    if windowed(ctx) {
-        return Outcome::PassThrough;
-    }
+    // No windowed-read passthrough: a large window (e.g. the whole file via a huge
+    // limit) must not be a back door to the uncompacted source. A tiny window whose
+    // header would outweigh the savings still passes through via the no-inflation
+    // guard below; recovery for a broken Edit is `snip resolve` (see the guidance).
     // secret_safe (opt-in, off by default): pass a secret-bearing source file
     // through uncompacted BEFORE dedupe — so no compacted view, spill file, or
     // dedupe-cache copy of the credential is ever produced. Masking source bytes
