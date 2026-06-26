@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # snip shell setup — put the managed binary on your PATH so you can run
-# `snip status`, `snip gain`, `snip config …` directly (no model turn), alongside
-# the `/snip <sub>` slash-command.
+# `snip status`, `snip gain`, `snip config …` directly from a shell, alongside the
+# `/snip:<name>` slash-commands.
 #
-# Invoked two ways: automatically by snip-bootstrap.sh on the FIRST install, and
-# manually via `/snip shell-setup` (or `/snip shell-setup remove`). It writes one
+# Opt-in only: invoked via `/snip:shell-setup` (or `/snip:shell-setup remove`) — a
+# fresh install never runs it automatically. It writes one
 # clearly-marked, removable block to the rc file(s) your interactive shell sources
 # and — on Windows — also adds the dir to your USER PATH env var, so non-interactive
 # shells (Claude Code's Bash tool), PowerShell, and cmd see it too. `remove` (and

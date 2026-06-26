@@ -83,10 +83,13 @@ mutate env via the `temp-env` crate (never `std::env::set_var`, unsafe in 2024).
 snip subcommands (dispatched in `src/cli/command.rs`): `read-hook`, `grep-hook`,
 `glob-hook`, `bash-route`, `edit-fix`, `write-guard`, `session-reset`,
 `update-check`, `exec`, `resolve`, `gain`, `status`, `update`, `config`,
-`enable`, `disable`, `uninstall`, `stat-record`. Meta-commands are surfaced as a
-single plugin slash-command — `/snip <sub>` (e.g. `/snip status`, `/snip gain`,
-`/snip uninstall`), routed by `scripts/snip-cmd.sh` (most to the binary;
-`shell-setup`/`uninstall` to their git-bash scripts).
+`enable`, `disable`, `uninstall`, `stat-record`. Meta-commands are surfaced as
+**per-purpose** plugin slash-commands (`commands/<name>.md` → `/snip:<name>`):
+`status`/`gain`/`config`/`enable`/`disable`/`update` are **model-invocable** (no
+`disable-model-invocation`, so Claude runs them from a plain-English ask);
+`shell-setup`/`uninstall` are user-only (`disable-model-invocation: true` +
+`model: haiku` + verbatim relay). All route through `scripts/snip-cmd.sh` (most to
+the binary; `shell-setup`/`uninstall` to their git-bash scripts).
 
 ## Project layout (`src/`, layered — one public type per file)
 

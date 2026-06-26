@@ -66,11 +66,14 @@ straight from a git bash shell, with **no model turn**:
 | `snip enable` · `snip disable` | Master switch on / off |
 | `snip update` | Check for the latest release and fetch the binary if newer |
 
-No terminal handy? The same commands are one slash-command in Claude Code —
-`/snip <sub>` (e.g. `/snip status`) — which is also where `/snip shell-setup`
-(add or `remove` the `PATH` line) and `/snip uninstall` (full teardown, removing
-the binary too) live. This only reaches the **already-installed** binary; install
-and updates still flow only through the plugin.
+No terminal handy? Each command is also a slash-command in Claude Code, split by
+purpose: `/snip:status`, `/snip:gain`, `/snip:config`, `/snip:enable`,
+`/snip:disable`, `/snip:update`, plus `/snip:shell-setup` and `/snip:uninstall`.
+The query/config commands are **model-invocable** — ask Claude in plain English
+("is snip active?", "how much did I save?", "set the read mode to high") and it
+runs the right one; `/snip:shell-setup` and `/snip:uninstall` are user-only. These
+only reach the **already-installed** binary; install and updates still flow only
+through the plugin.
 
 > **Removing snip:** run `/snip uninstall` **before** you remove the plugin. It
 > wipes the binary, snip's data dir, and any opted-in `PATH` line. Once the plugin
