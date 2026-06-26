@@ -100,11 +100,14 @@ shell rc and no `PATH` on its own). Then:
 | `snip enable` · `snip disable` | Flip the master switch |
 | `snip update` | Force a check for the latest release and fetch it if newer |
 
-No terminal handy? The same commands are also a single slash-command right in
-Claude Code — `/snip status`, `/snip gain`, … — which is also where
-`/snip shell-setup` (add or `remove` the `PATH` line) and `/snip uninstall` (full
-teardown, removing the binary too) live. Everything runs through git bash;
-install and updates still flow only through the plugin.
+No terminal handy? Each command is also a slash-command in Claude Code, split by
+purpose — `/snip:status`, `/snip:gain`, `/snip:config`, `/snip:enable`,
+`/snip:disable`, `/snip:update`, plus `/snip:shell-setup` and `/snip:uninstall`.
+The query/config ones are **model-invocable**: just ask Claude in plain English
+("is snip on?", "how many tokens did I save?", "set read mode to high") and it
+runs the right one. `/snip:shell-setup` and `/snip:uninstall` stay manual.
+Everything runs through git bash; install and updates still flow only through the
+plugin.
 
 ---
 
