@@ -87,9 +87,10 @@ Everything runs on a strict **sub-15ms budget** (most reads finish in 1–2ms), 
 
 ## 🎛️ Usage
 
-snip works the moment it's installed — there's nothing to run. It also puts its
-binary on your **`PATH`** at first install, so you drive it straight from a git
-bash shell, with **no model turn**:
+snip works the moment it's installed — there's nothing to run. To drive it
+straight from a git bash shell with **no model turn**, opt in once with
+`/snip shell-setup` (it adds a removable `PATH` line; a fresh install touches no
+shell rc and no `PATH` on its own). Then:
 
 | From a shell | What it does |
 |---|---|

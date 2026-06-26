@@ -33,10 +33,12 @@ output unchanged — and snip **never writes to your source files**.
 
 On first run the plugin downloads the prebuilt binary for your platform from the
 matching GitHub release, verifies its checksum, and installs it under your OS data
-dir; hooks then run it by absolute path. It also adds a clearly-marked, removable
-line to your shell rc so you can run `snip …` directly (undo with
-`/snip shell-setup remove`). Install **and** updates both flow through the plugin —
-there is no separate installer, and snip never patches your `settings.json`.
+dir; hooks then run it by absolute path. `PATH` setup is **opt-in**: a fresh
+install touches no shell rc and no `PATH`. To run `snip …` directly, opt in once
+with `/snip shell-setup` (it adds a clearly-marked, removable line to your shell
+rc; undo with `/snip shell-setup remove`). Install **and** updates both flow
+through the plugin — there is no separate installer, and snip never patches your
+`settings.json`.
 
 ## Updates
 
@@ -52,9 +54,9 @@ enable auto-update for the `snip` marketplace once (`/plugin` menu, or
 
 ## Commands — from your shell
 
-snip adds its binary to your **`PATH`** at first install (one clearly-marked,
-removable line in your shell rc), so the meta-commands run straight from a git
-bash shell, with **no model turn**:
+Opt in once with `/snip shell-setup` and snip adds its binary to your **`PATH`**
+(one clearly-marked, removable line in your shell rc), so the meta-commands run
+straight from a git bash shell, with **no model turn**:
 
 | From a shell | What it does |
 |---|---|
@@ -69,6 +71,11 @@ No terminal handy? The same commands are one slash-command in Claude Code —
 (add or `remove` the `PATH` line) and `/snip uninstall` (full teardown, removing
 the binary too) live. This only reaches the **already-installed** binary; install
 and updates still flow only through the plugin.
+
+> **Removing snip:** run `/snip uninstall` **before** you remove the plugin. It
+> wipes the binary, snip's data dir, and any opted-in `PATH` line. Once the plugin
+> is gone no hook runs, so anything left behind can no longer be cleaned up
+> automatically.
 
 ## Platforms
 

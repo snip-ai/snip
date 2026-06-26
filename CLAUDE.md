@@ -58,9 +58,10 @@ base shell / git / per-language-framework), `search` (Grep/Glob).
 registers the hooks and ships a tiny bootstrap script that downloads the prebuilt
 binary (checksum-verified) on first run. From there the **binary owns its own
 lifecycle**: it self-updates to the latest release on `SessionStart` (the
-marketplace does not auto-refresh a third-party manifest), opts the user into a
-removable `PATH` line on first install so `snip …` runs straight from a shell, and
-tears itself down via `snip uninstall`. There is no `init` or `self-update`
+marketplace does not auto-refresh a third-party manifest), keeps `PATH` setup
+**opt-in** (a fresh install touches no shell rc and no Windows `PATH`; run
+`/snip shell-setup` to add a removable `PATH` line so `snip …` runs straight from
+a shell), and tears itself down via `snip uninstall`. There is no `init` or `self-update`
 subcommand (update is the `update-check` hook; teardown is `uninstall`). **Every
 command runs through git bash** — on Windows too — so snip never reaches for
 PowerShell/cmd (a native `.exe` also can't spawn a detached shell that survives

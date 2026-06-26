@@ -80,8 +80,9 @@ Hooks are registered **declaratively by the Claude Code plugin** (`plugins/snip/
 — there is no `settings.json` patching, no `init`, and no curl/PowerShell
 installer. The plugin is a thin **bootstrap seed**: first run downloads the
 checksum-verified binary; from then on the **binary owns its lifecycle** — it
-self-updates on `SessionStart` (`update-check`), adds a removable `PATH` line on
-first install, and tears itself down via `snip uninstall` (which leaves a
+self-updates on `SessionStart` (`update-check`), keeps `PATH` setup opt-in (a
+fresh install touches no rc/`PATH`; `/snip shell-setup` adds a removable `PATH`
+line on request), and tears itself down via `snip uninstall` (which leaves a
 `.uninstalled` marker so `snip-run.sh` does not re-bootstrap before the plugin is
 removed). **All commands run through git bash**, on Windows too: a native `.exe`
 can't delete its own running file or spawn a detached shell that survives its
