@@ -27,6 +27,5 @@
     "llm",
     "llm-tools",
     "developer-tools"
-  ],
-  "commands": "./commands"
+  ]
 }
