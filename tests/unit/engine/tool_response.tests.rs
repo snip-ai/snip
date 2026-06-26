@@ -84,6 +84,33 @@ fn rewrite_preserves_nested_shape() {
 }
 
 #[test]
+fn rewrite_preserves_extra_nested_file_fields() {
+    // Claude Code >= 2.1.x enriches the Read file object with extra keys
+    // (`startLine`/`totalLines`, and possibly more later). snip mutates in place,
+    // so every field it does not own must round-trip unchanged — it rewrites only
+    // `content` and recomputes `numLines`.
+    let resp = json!({
+        "type":"text",
+        "file":{
+            "filePath":"/x.rs",
+            "content":"old",
+            "numLines":1,
+            "startLine":1,
+            "totalLines":200,
+            "futureField":"keep-me"
+        }
+    });
+
+    let out = ToolResponse::new(Some(&resp)).rewrite("[hdr]\n", "new");
+
+    check!(out.pointer("/file/content").and_then(Value::as_str) == Some("[hdr]\nnew"));
+    check!(out.pointer("/file/numLines").and_then(Value::as_u64) == Some(2));
+    check!(out.pointer("/file/startLine").and_then(Value::as_u64) == Some(1));
+    check!(out.pointer("/file/totalLines").and_then(Value::as_u64) == Some(200));
+    check!(out.pointer("/file/futureField").and_then(Value::as_str) == Some("keep-me"));
+}
+
+#[test]
 fn rewrite_preserves_legacy_flat_content_shape() {
     // Arrange: the legacy `{ "content": … }` shape (no nested `file`)
     let resp = json!({"content":"old","extra":42});
