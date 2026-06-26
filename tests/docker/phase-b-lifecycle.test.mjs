@@ -89,6 +89,8 @@ describe("Phase B — plugin lifecycle (offline)", () => {
     if (installed) {
       const v = spawnSync(bin, ["--version"], { encoding: "utf8" });
       assert.equal(v.status, 0, "the installed binary runs");
+      const lifecycle = fs.readFileSync(path.join(home, ".lifecycle"), "utf8").trim();
+      assert.equal(lifecycle, "installed 0.1.0", "a first install records an `installed` lifecycle event");
     } else {
       // Documented graceful no-op for an arch outside snip's release matrix
       // (e.g. linux/arm64): bootstrap exits 0 and installs nothing.
@@ -167,5 +169,59 @@ describe("Phase B — plugin lifecycle (offline)", () => {
     // Assert
     assert.equal(r.status, 0, "the wrapper exits 0");
     assert.equal(fs.existsSync(marker), false, "explicit `update` clears the .uninstalled marker");
+  });
+
+  test("snip-run.sh update-check on a fresh install emits a user-only `installing` banner", async () => {
+    // Arrange: no binary, no marker — first install.
+    const home = freshDir("snip-home-");
+
+    // Act
+    const r = await spawnAsync("bash", [RUN, "update-check"], {
+      env: { ...process.env, SNIP_HOME: home, CLAUDE_PLUGIN_ROOT: ROOT, SNIP_DOWNLOAD_BASE: DEAD, SNIP_RELEASES_API: DEAD },
+    });
+
+    // Assert: stdout is exactly one SessionStart systemMessage — user-visible, never model context.
+    assert.equal(r.status, 0, "the wrapper exits 0");
+    const banner = JSON.parse(r.stdout.trim());
+    assert.equal(banner.hookSpecificOutput.hookEventName, "SessionStart");
+    assert.match(banner.systemMessage, /installing/i);
+    assert.equal(banner.systemMessage.includes("additionalContext"), false);
+    assert.equal(banner.additionalContext, undefined, "no top-level model-context injection");
+    assert.equal(banner.hookSpecificOutput.additionalContext, undefined, "no nested model-context injection");
+  });
+
+  test("snip-run.sh update-check while uninstalled emits a user-only removal nudge", async () => {
+    // Arrange: dormant — marker present, no binary.
+    const home = freshDir("snip-home-");
+    fs.writeFileSync(path.join(home, ".uninstalled"), "");
+
+    // Act
+    const r = await spawnAsync("bash", [RUN, "update-check"], {
+      env: { ...process.env, SNIP_HOME: home, CLAUDE_PLUGIN_ROOT: ROOT, SNIP_DOWNLOAD_BASE: DEAD, SNIP_RELEASES_API: DEAD },
+    });
+
+    // Assert
+    assert.equal(r.status, 0, "the wrapper exits 0");
+    const banner = JSON.parse(r.stdout.trim());
+    assert.equal(banner.hookSpecificOutput.hookEventName, "SessionStart");
+    assert.match(banner.systemMessage, /uninstalled/i);
+    assert.equal(banner.additionalContext, undefined, "no model-context injection");
+  });
+
+  test("snip-run.sh update while uninstalled prints a plain-text reactivation notice", async () => {
+    // Arrange
+    const home = freshDir("snip-home-");
+    fs.writeFileSync(path.join(home, ".uninstalled"), "");
+
+    // Act: `/snip update` is relayed verbatim, so its message is plain text (not hook JSON).
+    const r = await spawnAsync("bash", [RUN, "update"], {
+      env: { ...process.env, SNIP_HOME: home, CLAUDE_PLUGIN_ROOT: ROOT, SNIP_DOWNLOAD_BASE: DEAD, SNIP_RELEASES_API: DEAD },
+    });
+
+    // Assert
+    assert.equal(r.status, 0, "the wrapper exits 0");
+    assert.match(r.stdout, /reactivating/i);
+    assert.equal(r.stdout.trim().startsWith("{"), false, "the /snip update relay is plain text, not hook JSON");
+    assert.equal(fs.existsSync(path.join(home, ".uninstalled")), false, "marker cleared");
   });
 });

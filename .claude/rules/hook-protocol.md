@@ -32,7 +32,12 @@ no `cat -n` prefixes: `{ "type": "text", "file": { "filePath", "content",
   `tool_input`, so re-emit every field you aren't changing.
 - **PreToolUse** (`write-guard`) → `permissionDecision: "ask"` with a reason.
 - **PreCompact** (`session-reset`) → no output; deletes the session cache.
-- **SessionStart** (`update-check`) → no output; detached, never blocks startup.
+- **SessionStart** (`update-check`) → usually no output (the fetch is detached and
+  never blocks startup); emits at most one `systemMessage` lifecycle banner —
+  user-visible, never model context — when the bootstrap just installed/updated the
+  binary or a self-update failed (read from the `.lifecycle` sentinel, see
+  [`src/lifecycle.rs`]). On `SessionStart` every byte of stdout MUST be valid hook
+  JSON; bare text there is injected into the model's context.
 
 ## Pre-hook validation limit (Claude Code ≥ 2.1.x)
 

@@ -43,23 +43,30 @@ plugin_version() {
 if [ "$SUB" = "update-check" ] || [ "$SUB" = "update" ]; then
   if [ ! -x "$BIN" ]; then
     # Binary absent. The bootstrap is spawned from here (a native .exe can't spawn a
-    # shell that survives its own exit on Windows; bash can, via nohup).
-    #  - `update-check` (automatic, every SessionStart): bootstrap a first install,
-    #    but HONOR a `.uninstalled` marker. `snip uninstall` writes that marker and
-    #    removes the binary; while the plugin is still installed its hooks keep
-    #    firing, so without this guard the next SessionStart would silently
-    #    re-download the binary and undo the uninstall. Stay dormant instead (no
-    #    bootstrap, marker left intact) until the plugin itself is removed.
-    #  - `update` (explicit `/snip update`): the user is deliberately (re)installing,
-    #    so clear any `.uninstalled` marker and bootstrap. This is how to bring snip
-    #    back after `snip uninstall` without removing and re-adding the plugin.
-    if [ -f "$SCRIPT_DIR/snip-bootstrap.sh" ]; then
-      if [ "$SUB" = "update" ]; then
-        rm -f "$HOME_DIR/.uninstalled" 2>/dev/null || true
-        nohup bash "$SCRIPT_DIR/snip-bootstrap.sh" "$(plugin_version)" "$HOME_DIR" >/dev/null 2>&1 &
-      elif [ ! -f "$HOME_DIR/.uninstalled" ]; then
+    # shell that survives its own exit on Windows; bash can, via nohup). The detached
+    # download lands AFTER this hook exits, so its result is surfaced on the NEXT
+    # SessionStart (the binary's `update-check` reads a `.lifecycle` sentinel). Here
+    # we only announce what is happening now.
+    #
+    # On SessionStart (`update-check`) every byte of stdout MUST be valid hook JSON —
+    # bare text there leaks into the MODEL's context — so the banners below use a
+    # `systemMessage` envelope (user-visible, never model context). `/snip update` is
+    # a slash-command relayed verbatim, so its reactivation message is plain text.
+    if [ "$SUB" = "update" ]; then
+      # Explicit reactivation: clear any `.uninstalled` marker and (re)install.
+      rm -f "$HOME_DIR/.uninstalled" 2>/dev/null || true
+      if [ -f "$SCRIPT_DIR/snip-bootstrap.sh" ]; then
         nohup bash "$SCRIPT_DIR/snip-bootstrap.sh" "$(plugin_version)" "$HOME_DIR" >/dev/null 2>&1 &
       fi
+      printf 'snip: reactivating - downloading the binary in the background; active next session.\n'
+    elif [ -f "$HOME_DIR/.uninstalled" ]; then
+      # Dormant: `snip uninstall` ran and the plugin is not yet removed. Do NOT
+      # re-bootstrap (that would undo the uninstall); nudge the user to finish.
+      printf '%s\n' '{"hookSpecificOutput":{"hookEventName":"SessionStart"},"systemMessage":"snip: uninstalled - remove the snip plugin to finish, or run /snip update to reactivate."}'
+    elif [ -f "$SCRIPT_DIR/snip-bootstrap.sh" ]; then
+      # First install: fetch in the background and tell the user it lands next session.
+      nohup bash "$SCRIPT_DIR/snip-bootstrap.sh" "$(plugin_version)" "$HOME_DIR" >/dev/null 2>&1 &
+      printf '%s\n' '{"hookSpecificOutput":{"hookEventName":"SessionStart"},"systemMessage":"snip: installing the optimizer binary in the background - active next session."}'
     fi
     exit 0
   fi

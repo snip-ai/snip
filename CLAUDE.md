@@ -32,7 +32,7 @@ base shell / git / per-language-framework), `search` (Grep/Glob).
 | Bash | PreToolUse/Bash | `bash-route` → `exec` | `command` |
 | Edit / Write | PreToolUse | `edit-fix` / `write-guard` | `read` |
 | PreCompact | PreCompact | `session-reset` | clears the session cache |
-| SessionStart | SessionStart | `update-check` | binary ↔ latest release |
+| SessionStart | SessionStart | `update-check` | binary ↔ latest release (+ lifecycle banner) |
 
 ## Non-negotiables
 
@@ -129,6 +129,9 @@ can't be externalized to JSON).
 - `commands/` — CLI / slash-command backends only (`gain`/`status`/`config`/`resolve`).
 - `cli/` — `Cli` (clap root) + `Command` (subcommands + dispatch).
 - `stats/` — `SQLite` event store (`db`/`recorder`/`tracking`) + pricing.
+- `lifecycle` — parses the `.lifecycle` sentinel the bootstrap leaves (install /
+  update / download-failed) and renders the one-shot `SessionStart` `systemMessage`
+  banner; consumed by `hooks/update_check` (user-visible, never model context).
 - `paths` / `tokens` / `relevance` / `clock` / `panic_guard` — dependency-free leaf
   utils (state dirs, the token-count heuristic, the shared error-marker relevance
   test, the Unix-seconds clock, and the `catch_unwind` exit-0 guard for the three

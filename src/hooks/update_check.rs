@@ -7,7 +7,8 @@
 //! stats append-log into `SQLite` (off the hot path — `SessionStart` is not a
 //! tool hook) and, when the once-a-day throttle has elapsed, drops a `.fetch-due`
 //! sentinel that `snip-run.sh` consumes to spawn the bootstrap. It never blocks
-//! startup, writes nothing to stdout, and always exits 0.
+//! startup and always exits 0; its only stdout is an optional one-line lifecycle
+//! banner (a user-visible `systemMessage`, never model context — see [`crate::lifecycle`]).
 
 use std::fs;
 use std::path::PathBuf;
@@ -35,8 +36,22 @@ pub fn run() -> anyhow::Result<()> {
             touch_state();
             flag_fetch_due();
         }
+        emit_lifecycle_banner();
         Ok(())
     })
+}
+
+/// Surface any pending lifecycle event left by the detached bootstrap as a
+/// one-line `systemMessage` (user-visible, never model context), consuming the
+/// sentinel so the notice fires exactly once. Best-effort: no data dir or no
+/// pending event prints nothing (empty stdout = "no change").
+fn emit_lifecycle_banner() {
+    let Some(dir) = crate::paths::data_dir() else {
+        return;
+    };
+    if let Some(event) = crate::lifecycle::Lifecycle::consume(&dir) {
+        println!("{}", event.banner_json());
+    }
 }
 
 fn state_path() -> Option<PathBuf> {
