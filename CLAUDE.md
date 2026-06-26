@@ -159,11 +159,14 @@ all 29 Read languages.
 `read` compacts over 29 languages in **3 modes** (`optimizers.read.mode`
 soft/medium/high): soft strips comments byte-identically; medium/high collapse code
 (single-line-safe langs via an origin-map view, others via whitespace). It's
-**Edit-safe**: `edit-fix` and the live `snip resolve` map a compacted `old_string`
-back to real bytes — AST-anchored fuzzy (LCS 0.85 + length-ratio 0.80) for soft, the
-origin map for medium/high (+ `reexpand` of a collapsed `new_string`); `write-guard`
-asks before a Write reproduces the stripped view; identical re-reads dedupe to a
-session notice (cleared at `PreCompact`).
+**Edit-safe**: the live `snip resolve` maps a compacted `old_string` back to real
+bytes — AST-anchored fuzzy (LCS 0.85 + length-ratio 0.80) for soft, the origin map
+for medium/high (+ `reexpand` of a collapsed `new_string`). (`edit-fix` would do this
+in-hook, but current Claude Code validates `old_string` **before** PreToolUse, so
+`resolve` is the recovery — see [`hook-protocol.md`].) Every read is compacted —
+windowed reads included, no verbatim escape — so `resolve` is the single recovery;
+`write-guard` asks before a Write reproduces the stripped view; identical re-reads
+dedupe to a session notice (cleared at `PreCompact`).
 
 `search`/`command` **rewrite** output (not just truncate), then the shared
 overflow/spill service (Head/Tail/Middle/**RelevanceFirst**) caps the shown view and
