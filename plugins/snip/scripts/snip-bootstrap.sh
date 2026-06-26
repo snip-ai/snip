@@ -45,12 +45,6 @@ case "$TARGET" in
   *) exit 0 ;;
 esac
 
-# Remember whether this is a FIRST install (vs a later update): only a first
-# install opts the user into the PATH line, so a deliberate `/snip shell-setup
-# remove` is never undone by a subsequent update.
-WAS_INSTALLED=0
-[ -x "$HOME_DIR/bin/$BINF" ] && WAS_INSTALLED=1
-
 # --- resolve version --------------------------------------------------------
 if [ -z "$VERSION" ]; then
   VERSION="$(curl -fsSL "$RELEASES_API/latest" 2>/dev/null \
@@ -109,10 +103,8 @@ mkdir -p "$HOME_DIR/bin" || exit 0
 mv -f "$TMP/$BINF" "$HOME_DIR/bin/$BINF" 2>/dev/null || cp -f "$TMP/$BINF" "$HOME_DIR/bin/$BINF" || exit 0
 chmod +x "$HOME_DIR/bin/$BINF" 2>/dev/null || true
 
-# First install: opt the user into running `snip` directly from a shell by adding
-# a clearly-marked, removable PATH line. Best-effort and idempotent; undo anytime
-# with `/snip shell-setup remove` (or `/snip uninstall`).
-if [ "$WAS_INSTALLED" = 0 ] && [ -f "${0%/*}/snip-shell-setup.sh" ]; then
-  bash "${0%/*}/snip-shell-setup.sh" setup >/dev/null 2>&1 || true
-fi
+# PATH setup is opt-in. The binary runs from the plugin hooks and the `/snip`
+# command by absolute path, so a fresh install touches no shell rc files and no
+# Windows PATH — nothing to orphan if the plugin is later removed. To invoke
+# `snip` directly from a terminal, run `/snip shell-setup` (undo: `… remove`).
 exit 0
