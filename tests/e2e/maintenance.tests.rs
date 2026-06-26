@@ -7,7 +7,7 @@ use std::fs;
 use assert2::check;
 use serde_json::json;
 
-use crate::support::{Snip, stdout_str};
+use crate::support::{Snip, stdout_json, stdout_str};
 
 #[test]
 fn session_reset_drops_only_the_named_session_cache() {
@@ -45,6 +45,33 @@ fn update_check_when_due_records_throttle_and_flags_a_fetch() {
     check!(stdout_str(&out).trim().is_empty());
     check!(snip.home().join(".update-check").exists());
     check!(snip.home().join(".fetch-due").exists());
+}
+
+#[test]
+fn update_check_emits_and_consumes_a_pending_lifecycle_banner() {
+    let snip = Snip::fresh();
+    fs::write(snip.home().join(".lifecycle"), "installed 9.9.9\n").unwrap();
+
+    let out = snip.run(&["update-check"], "");
+
+    check!(out.status.success());
+    let banner = stdout_json(&out);
+    check!(banner["hookSpecificOutput"]["hookEventName"] == "SessionStart");
+    check!(
+        banner["systemMessage"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("9.9.9")
+    );
+    // The model channel is never touched — only `systemMessage` (user-visible).
+    check!(banner.get("additionalContext").is_none());
+    check!(
+        banner["hookSpecificOutput"]
+            .get("additionalContext")
+            .is_none()
+    );
+    // Consumed exactly once.
+    check!(!snip.home().join(".lifecycle").exists());
 }
 
 #[test]

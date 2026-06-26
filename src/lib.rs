@@ -15,6 +15,7 @@ pub mod domain;
 pub mod engine;
 pub mod hooks;
 pub mod languages;
+pub mod lifecycle;
 pub mod optimizers;
 pub mod overflow;
 pub mod panic_guard;
