@@ -127,19 +127,42 @@ fn lang_family_specs_resolve_and_skip_servers() {
 
 #[test]
 fn user_spec_extends_command_lookup() {
-    // Arrange: a user spec adds a brand-new `make` command
+    // Arrange: a user spec adds a brand-new command with no built-in counterpart
     let cfg: Config = serde_json::from_str(
-        r#"{"specs":[{"name":"make","surface":"bash","bind":{"cmd":"make"},
+        r#"{"specs":[{"name":"frobnicate","surface":"bash","bind":{"cmd":"frobnicate"},
             "transforms":[{"op":"dedupe"}]}]}"#,
     )
     .unwrap();
     let specs = CommandSpecs::load(&cfg);
 
     // Act
-    let make = specs.find("make", None);
+    let frob = specs.find("frobnicate", None);
 
     // Assert
-    check!(make.map(|s| s.name.as_str()) == Some("make"));
+    check!(frob.map(|s| s.name.as_str()) == Some("frobnicate"));
+}
+
+#[test]
+fn build_and_compiler_catch_alls_resolve_for_any_subcommand() {
+    // Arrange: the new non-streaming build/compiler families (no dev-server
+    // subcommand, so safe as catch-alls — unlike npm/yarn/pnpm).
+    let specs = CommandSpecs::load(&Config::default());
+
+    // Act + Assert: each resolves for an arbitrary invocation …
+    check!(specs.find("make", None).map(|s| s.name.as_str()) == Some("make"));
+    check!(specs.find("make", Some("build")).map(|s| s.name.as_str()) == Some("make"));
+    check!(
+        specs
+            .find("cmake", Some("--build"))
+            .map(|s| s.name.as_str())
+            == Some("cmake")
+    );
+    check!(specs.find("gcc", None).map(|s| s.name.as_str()) == Some("gcc"));
+    check!(specs.find("g++", None).map(|s| s.name.as_str()) == Some("gpp"));
+    check!(specs.find("clang", None).map(|s| s.name.as_str()) == Some("clang"));
+    // … pip queries resolve to the catch-all, while `pip install` keeps its spec.
+    check!(specs.find("pip", Some("list")).map(|s| s.name.as_str()) == Some("pip-query"));
+    check!(specs.find("pip", Some("install")).map(|s| s.name.as_str()) == Some("pip-install"));
 }
 
 #[test]

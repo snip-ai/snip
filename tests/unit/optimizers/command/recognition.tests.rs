@@ -3,7 +3,7 @@
 
 use assert2::check;
 
-use super::{inject_offset, is_blocking, parse};
+use super::{has_option, inject_offset, is_blocking, parse};
 
 #[test]
 fn parses_argv0_and_subcommand() {
@@ -144,4 +144,43 @@ fn inject_offset_skips_leading_env_assignments() {
 
     // Assert: the splice point is past the assignment AND the sub-command
     check!(&text[..off] == "FOO=bar git log");
+}
+
+#[test]
+fn unwraps_wrapper_prefixes_to_the_real_tool() {
+    // Arrange + Act + Assert: sudo/npx/env/nice are skipped so the inner tool's
+    // spec can match (and its value-flags are consumed, e.g. `-u root`, `-n 10`).
+    check!(parse("sudo cargo build") == Some(("cargo".to_owned(), Some("build".to_owned()))));
+    check!(parse("npx eslint src") == Some(("eslint".to_owned(), Some("src".to_owned()))));
+    check!(parse("env FOO=bar pytest") == Some(("pytest".to_owned(), None)));
+    check!(parse("nice -n 10 make") == Some(("make".to_owned(), None)));
+    check!(parse("sudo -u root cargo test") == Some(("cargo".to_owned(), Some("test".to_owned()))));
+}
+
+#[test]
+fn unwrapped_wrapper_exposes_a_blocking_inner_command() {
+    // Arrange + Act: `sudo vim` must be seen as the inner `vim`, not `sudo`, so the
+    // blocking check stops it from being wrapped into a hang.
+    assert2::assert!(let Some((argv0, _)) = parse("sudo vim file"));
+
+    // Assert
+    check!(is_blocking(&argv0));
+}
+
+#[test]
+fn has_option_detects_both_flag_forms_and_ignores_absent_or_prefix() {
+    // Arrange + Act + Assert
+    check!(has_option(
+        "cargo build --message-format=human",
+        "--message-format"
+    ));
+    check!(has_option(
+        "cargo build --message-format human",
+        "--message-format"
+    ));
+    check!(!has_option("cargo build", "--message-format"));
+    check!(!has_option(
+        "cargo build --message-formatx=1",
+        "--message-format"
+    ));
 }

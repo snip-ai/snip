@@ -19,6 +19,7 @@ pub mod recognition;
 pub mod segment;
 pub mod segmenter;
 pub mod unit;
+pub mod unrecognized;
 
 pub use command_specs::CommandSpecs;
 pub use op::Op;

@@ -123,3 +123,49 @@ fn lossy_autodetect_fold_spills_the_dropped_lines_but_a_lossless_fold_does_not()
     );
     let _ = std::fs::remove_dir_all(&home);
 }
+
+#[test]
+fn large_unrecognized_output_is_capped_and_spilled() {
+    if !sh_available() {
+        return;
+    }
+    let _guard = crate::paths::ENV_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let home = std::env::temp_dir().join(format!("snip-exec-cap-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&home);
+    temp_env::with_vars(
+        [
+            ("SNIP_HOME", Some(home.to_string_lossy().into_owned())),
+            ("SNIP_SESSION", Some("sess-cap".to_owned())),
+            ("SNIP_ENABLED", Some("1".to_owned())),
+        ],
+        || {
+            // ~6000 lines of distinct alpha-word content: not JSON, not losslessly
+            // foldable — the exact "unrecognized, non-repetitive" case that used to
+            // pass through raw and flood context (~280 KB) with no cap.
+            let (out, code) = run_capture(
+                "awk 'BEGIN{for(i=0;i<6000;i++){s=\"\";n=i+1000000;\
+                 while(n>0){s=s sprintf(\"%c\",97+(n%26));n=int(n/26)};\
+                 print s\" \"s\" \"s\" unique structural payload row\"}}'",
+            )
+            .expect("sh runs");
+            let shown = String::from_utf8_lossy(&out);
+
+            check!(code == 0);
+            // snip rewrote it (left a recoverable [snip: …] breadcrumb) …
+            check!(shown.contains("[snip:"));
+            // … capped the shown view far below the ~280 KB it generated …
+            check!(out.len() < 60_000);
+            // … and spilled the full output recoverably.
+            let dir = home.join("session-cache").join("sess-cap");
+            let spills = std::fs::read_dir(&dir)
+                .expect("session cache dir exists")
+                .filter_map(Result::ok)
+                .filter(|e| e.file_name().to_string_lossy().starts_with("spill-command"))
+                .count();
+            check!(spills >= 1);
+        },
+    );
+    let _ = std::fs::remove_dir_all(&home);
+}

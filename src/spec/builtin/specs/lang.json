@@ -57,6 +57,73 @@
     ]
   },
   {
+    "name": "make",
+    "surface": "bash",
+    "bind": { "cmd": "make" },
+    "transforms": [
+      { "op": "strip_ansi" },
+      { "op": "dedupe" },
+      { "op": "fold_frames" },
+      { "op": "rank", "by": "errors_first" },
+      { "op": "truncate", "head": 40, "tail": 40 }
+    ]
+  },
+  {
+    "name": "cmake",
+    "surface": "bash",
+    "bind": { "cmd": "cmake" },
+    "transforms": [
+      { "op": "strip_ansi" },
+      { "op": "dedupe" },
+      { "op": "rank", "by": "errors_first" },
+      { "op": "truncate", "head": 40, "tail": 30 }
+    ]
+  },
+  {
+    "name": "pip-query",
+    "surface": "bash",
+    "bind": { "cmd": "pip" },
+    "transforms": [
+      { "op": "strip_ansi" },
+      { "op": "dedupe" },
+      { "op": "rank", "by": "errors_first" },
+      { "op": "truncate", "head": 40, "tail": 20 }
+    ]
+  },
+  {
+    "name": "gcc",
+    "surface": "bash",
+    "bind": { "cmd": "gcc" },
+    "transforms": [
+      { "op": "strip_ansi" },
+      { "op": "dedupe" },
+      { "op": "rank", "by": "errors_first" },
+      { "op": "truncate", "head": 50, "tail": 30 }
+    ]
+  },
+  {
+    "name": "gpp",
+    "surface": "bash",
+    "bind": { "cmd": "g++" },
+    "transforms": [
+      { "op": "strip_ansi" },
+      { "op": "dedupe" },
+      { "op": "rank", "by": "errors_first" },
+      { "op": "truncate", "head": 50, "tail": 30 }
+    ]
+  },
+  {
+    "name": "clang",
+    "surface": "bash",
+    "bind": { "cmd": "clang" },
+    "transforms": [
+      { "op": "strip_ansi" },
+      { "op": "dedupe" },
+      { "op": "rank", "by": "errors_first" },
+      { "op": "truncate", "head": 50, "tail": 30 }
+    ]
+  },
+  {
     "name": "eslint",
     "surface": "bash",
     "bind": { "cmd": "eslint" },

@@ -26,11 +26,86 @@ const GIT_VALUE_OPTS: &[&str] = &[
     "--exec-path",
 ];
 
+/// Wrapper commands that prefix the real tool (`sudo cargo build`, `npx eslint`,
+/// `env FOO=1 pytest`). Skipping past them lets the real tool's spec match — and,
+/// since `is_blocking` then sees the real tool, also stops a wrapped interactive
+/// command (`sudo vim`) from being wrapped into a hang.
+const WRAPPERS: &[&str] = &[
+    "sudo", "doas", "env", "nice", "ionice", "nohup", "stdbuf", "setarch", "time", "npx",
+];
+
+/// Wrapper options that consume the following word as their value. Conservative:
+/// a wrong guess only costs a missed spec (the landing word isn't a known command,
+/// so `find` returns nothing) — never a misfire that breaks a command.
+const WRAPPER_VALUE_OPTS: &[&str] = &[
+    "-u",
+    "-g",
+    "-U",
+    "-C",
+    "-p",
+    "-n",
+    "-c",
+    "-r",
+    "-t",
+    "--package",
+];
+
+/// Advance `argv0` past any leading wrapper commands to the real tool. Bounded so
+/// a pathological chain can't loop.
+fn unwrap_wrappers(words: &[&str], mut argv0: usize) -> usize {
+    for _ in 0..8 {
+        let base = basename(words[argv0]);
+        if !WRAPPERS.contains(&base.as_str()) {
+            return argv0;
+        }
+        let mut i = argv0 + 1;
+        while let Some(&w) = words.get(i) {
+            if w == "--" {
+                i += 1;
+                break;
+            }
+            if is_assignment(w) {
+                i += 1;
+                continue;
+            }
+            if !w.starts_with('-') {
+                break;
+            }
+            if WRAPPER_VALUE_OPTS.contains(&w) {
+                i += 1;
+            }
+            i += 1;
+        }
+        if i < words.len() {
+            argv0 = i;
+        } else {
+            return argv0;
+        }
+    }
+    argv0
+}
+
+/// True if `text`'s words already contain the option `key`.
+///
+/// Matches both the `--flag value` form (`key` as its own word) and the
+/// `--flag=value` form (`key=…`). Lets the planner skip injecting a
+/// format-changing flag the user set explicitly, so snip never overrides — and
+/// breaks — a user-requested output format.
+#[must_use]
+pub fn has_option(text: &str, key: &str) -> bool {
+    words(text).iter().any(|w| {
+        w == key
+            || w.strip_prefix(key)
+                .is_some_and(|rest| rest.starts_with('='))
+    })
+}
+
 /// `(argv0 index, sub-command index)` into `words`: the first non-assignment word
-/// (argv0), then the first non-flag word after it — skipping, for `git`, a
-/// [`GIT_VALUE_OPTS`] value (so `git -C /path diff` ⇒ `diff`, not `/path`).
+/// (argv0, after skipping any [`WRAPPERS`]), then the first non-flag word after it
+/// — skipping, for `git`, a [`GIT_VALUE_OPTS`] value (`git -C /path diff` ⇒ `diff`).
 fn locate(words: &[&str]) -> Option<(usize, Option<usize>)> {
     let argv0 = words.iter().position(|w| !is_assignment(w))?;
+    let argv0 = unwrap_wrappers(words, argv0);
     let is_git = basename(words[argv0]) == "git";
     let mut i = argv0 + 1;
     while let Some(&w) = words.get(i) {

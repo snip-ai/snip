@@ -140,14 +140,31 @@ fn inject_at<'a>(
     cmd: &str,
     unit: &Unit,
     matched: Option<&'a OptimizerSpec>,
-) -> Option<(usize, &'a [String])> {
+) -> Option<(usize, Vec<&'a String>)> {
     let spec = matched?;
     if spec.inject_flags.is_empty() {
         return None;
     }
+    let text = unit.last_text(cmd);
+    // A keyed flag (`--key=value`) is dropped when the user already set that key,
+    // so snip never overrides an explicit output-format choice — e.g. injecting
+    // `--message-format=json` over a user's `--message-format=human` makes cargo
+    // error out instead of building. Valueless flags (`--oneline`, `-json`) are
+    // additive, so they always inject.
+    let flags: Vec<&String> = spec
+        .inject_flags
+        .iter()
+        .filter(|f| match f.split_once('=') {
+            Some((key, _)) => !recognition::has_option(text, key),
+            None => true,
+        })
+        .collect();
+    if flags.is_empty() {
+        return None;
+    }
     let with_sub = !spec.bind.subcommands.is_empty();
-    let offset = recognition::inject_offset(unit.last_text(cmd), with_sub)?;
-    Some((unit.last.0 + offset, &spec.inject_flags))
+    let offset = recognition::inject_offset(text, with_sub)?;
+    Some((unit.last.0 + offset, flags))
 }
 
 /// A high-entropy, per-invocation marker (pid + nanos), bracketed by SOH bytes so
