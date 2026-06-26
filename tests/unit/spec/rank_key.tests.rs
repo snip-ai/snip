@@ -32,3 +32,15 @@ fn errors_first_is_a_noop_without_relevant_lines() {
     // Assert
     check!(out == lines(&["ok one", "ok two"]));
 }
+
+#[test]
+fn path_sorts_lexicographically_so_same_dir_paths_become_consecutive() {
+    // Arrange: mtime-interleaved paths from two directories
+    let records = lines(&["src/a/x.rs", "src/b/y.rs", "src/a/z.rs", "src/b/w.rs"]);
+
+    // Act
+    let out = RankKey::Path.rank(records);
+
+    // Assert: each directory's files are now adjacent, ready for group(dir)
+    check!(out == lines(&["src/a/x.rs", "src/a/z.rs", "src/b/w.rs", "src/b/y.rs"]));
+}

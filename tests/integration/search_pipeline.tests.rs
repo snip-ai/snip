@@ -2,6 +2,8 @@
 //! spec runs its transform chain (dedupe → group-by-file → cap) on grep output
 //! and produces a token-saving `Rewrite`. Black-box: only `pub` items.
 
+use std::fmt::Write;
+
 use assert2::check;
 use serde_json::json;
 use snip_lib::config::Config;
@@ -81,5 +83,35 @@ fn glob_output_is_grouped_by_directory() {
     // Assert: the shared directory becomes one header, paths indented under it
     assert2::assert!(let Outcome::Rewrite { body, new_tokens, original_tokens, .. } = outcome);
     check!(body.contains("src/optimizers/read:\n  a.rs"));
+    check!(new_tokens < original_tokens);
+}
+
+#[test]
+fn glob_interleaved_directories_are_sorted_then_grouped() {
+    // Arrange: Claude Code returns Glob paths in mtime order, so same-directory
+    // entries interleave — a consecutive-run grouper alone would fold nothing.
+    let cfg = Config::default();
+    let input = json!({"pattern": "**/*.rs"});
+    let mut output = String::new();
+    for i in 0..12 {
+        let _ = writeln!(output, "src/alpha/file{i:02}.rs");
+        let _ = writeln!(output, "src/beta/mod{i:02}.rs");
+    }
+    let ctx = HookCtx {
+        surface: Surface::Glob,
+        session_id: None,
+        transcript_path: None,
+        input: &input,
+        output: Some(&output),
+        cfg: &cfg,
+    };
+
+    // Act
+    assert2::assert!(let Ok(outcome) = search_for(Surface::Glob).apply(&ctx));
+
+    // Assert: the path sort makes both directories fold despite the interleaving
+    assert2::assert!(let Outcome::Rewrite { body, new_tokens, original_tokens, .. } = outcome);
+    check!(body.contains("src/alpha:\n  file00.rs"));
+    check!(body.contains("src/beta:\n  mod00.rs"));
     check!(new_tokens < original_tokens);
 }
