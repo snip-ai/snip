@@ -21,6 +21,16 @@ const haveCurl = spawnSync("curl", ["--version"], { encoding: "utf8" }).status =
 const haveTar = spawnSync("tar", ["--version"], { encoding: "utf8" }).status === 0;
 const SKIP = haveCurl && haveTar ? false : "curl/tar not available (bootstrap needs them)";
 
+// An unreachable loopback base: any bootstrap that DID spawn fails its download
+// fast, so the marker-logic tests below stay hermetic (no network, no tarball).
+const DEAD = "http://127.0.0.1:1";
+
+// Forward-slash the script/root paths so `${0%/*}` in snip-run.sh finds a `/`
+// before the filename on Windows too (real hooks pass a `/`-joined path). No-op
+// on POSIX. Without this, a node path.join() argv is all-backslash on Windows.
+const RUN = SNIP_RUN.replace(/\\/g, "/");
+const ROOT = PLUGIN_ROOT.replace(/\\/g, "/");
+
 after(cleanupTemp);
 
 /** Build a `snip` tarball + its sha256 from the built binary. */
@@ -116,5 +126,46 @@ describe("Phase B — plugin lifecycle (offline)", () => {
     if (process.platform === "linux" && process.arch === "x64") {
       assert.ok(appeared, "amd64 Linux: the wrapper self-installed the binary");
     }
+  });
+
+  test("snip-run.sh update-check honors the .uninstalled marker (no re-bootstrap)", async () => {
+    // Arrange: binary absent but `.uninstalled` present — `snip uninstall` ran and
+    // the plugin is not yet removed. Bootstrap base is unreachable, so a regressed
+    // guard that DID spawn it installs nothing; the tell-tale is the marker itself —
+    // the old (buggy) code cleared it on update-check, the fix must leave it intact.
+    const home = freshDir("snip-home-");
+    const marker = path.join(home, ".uninstalled");
+    fs.writeFileSync(marker, "");
+
+    // Act
+    const r = await spawnAsync("bash", [RUN, "update-check"], {
+      env: { ...process.env, SNIP_HOME: home, CLAUDE_PLUGIN_ROOT: ROOT, SNIP_DOWNLOAD_BASE: DEAD, SNIP_RELEASES_API: DEAD },
+    });
+    await new Promise((res) => setTimeout(res, 400));
+
+    // Assert: stayed dormant — exits 0, marker intact, nothing installed.
+    assert.equal(r.status, 0, "the wrapper exits 0");
+    assert.ok(fs.existsSync(marker), "update-check leaves the .uninstalled marker intact");
+    assert.equal(fs.existsSync(path.join(home, "bin", "snip")), false, "no unix binary installed");
+    assert.equal(fs.existsSync(path.join(home, "bin", "snip.exe")), false, "no windows binary installed");
+  });
+
+  test("snip-run.sh update clears the .uninstalled marker (explicit reactivation)", async () => {
+    // Arrange: same dormant state; the user runs `/snip update` to bring snip back
+    // without removing and re-adding the plugin.
+    const home = freshDir("snip-home-");
+    const marker = path.join(home, ".uninstalled");
+    fs.writeFileSync(marker, "");
+
+    // Act: `update` clears the marker synchronously, before the (here unreachable)
+    // bootstrap is spawned, so the assertion is deterministic regardless of whether
+    // a real download would have succeeded.
+    const r = await spawnAsync("bash", [RUN, "update"], {
+      env: { ...process.env, SNIP_HOME: home, CLAUDE_PLUGIN_ROOT: ROOT, SNIP_DOWNLOAD_BASE: DEAD, SNIP_RELEASES_API: DEAD },
+    });
+
+    // Assert
+    assert.equal(r.status, 0, "the wrapper exits 0");
+    assert.equal(fs.existsSync(marker), false, "explicit `update` clears the .uninstalled marker");
   });
 });
