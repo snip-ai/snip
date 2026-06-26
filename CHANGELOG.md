@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.7.0](https://github.com/snip-ai/snip/compare/v0.6.0...v0.7.0) (2026-06-26)
+
+
+### 🚀 Features
+
+* **commands:** split /snip into per-purpose commands; make queries model-invocable ([#40](https://github.com/snip-ai/snip/issues/40)) ([04fd3ba](https://github.com/snip-ai/snip/commit/04fd3baac32a8f65816c3059982c6f16c3930705))
+* **lifecycle:** surface install/update/uninstall state via a SessionStart banner ([#38](https://github.com/snip-ai/snip/issues/38)) ([8e6ca42](https://github.com/snip-ai/snip/commit/8e6ca426eea9df0c497c337b2303d2bc8606c8ea))
+* **read:** always compact, even windowed reads — resolve is the sole Edit recovery ([#39](https://github.com/snip-ai/snip/issues/39)) ([8710ac6](https://github.com/snip-ai/snip/commit/8710ac67ecc6d3f183e5fa92978d97f62a47fca0))
+
+
+### 🐛 Bug Fixes
+
+* **lifecycle:** honor .uninstalled marker so `snip uninstall` is not auto-undone ([#35](https://github.com/snip-ai/snip/issues/35)) ([f52a810](https://github.com/snip-ai/snip/commit/f52a8104f0af10c4deaa5982a6c693d4ae030502))
+
+
+### ♻️ Refactoring
+
+* **install:** make PATH setup opt-in (no auto rc/PATH writes on install) ([#37](https://github.com/snip-ai/snip/issues/37)) ([b999346](https://github.com/snip-ai/snip/commit/b99934637657465ba3bc993ca9bfbce730c90053))
+
 ## [0.6.0](https://github.com/snip-ai/snip/compare/v0.5.2...v0.6.0) (2026-06-26)
 
 
