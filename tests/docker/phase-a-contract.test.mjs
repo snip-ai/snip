@@ -69,6 +69,15 @@ describe("Phase A — contract drift canary", () => {
     assert.equal(tr.type, "text", "Read tool_response.type");
     assert.equal(typeof tr.file?.content, "string", "snip reads tool_response.file.content");
     assert.equal(typeof tr.file?.filePath, "string", "snip's header uses tool_response.file.filePath");
+    assert.equal(typeof tr.file?.numLines, "number", "snip rewrites tool_response.file.numLines");
+    // Claude Code >= 2.1.x adds `startLine`/`totalLines` to the windowed-read file
+    // object; snip does not read them but MUST preserve them through its rewrite
+    // (covered version-independently by the ToolResponse round-trip unit test).
+    // Assert their type when present without requiring them, so the canary tolerates
+    // the pinned older client yet flags a type change on newer ones.
+    for (const k of ["startLine", "totalLines"]) {
+      if (k in tr.file) assert.equal(typeof tr.file[k], "number", `Read file.${k} (when present) is numeric`);
+    }
   });
 
   test("Grep: tool_response.content is still a top-level string (search optimizer)", { skip: SKIP }, () => {
